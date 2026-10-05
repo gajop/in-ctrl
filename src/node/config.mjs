@@ -12,12 +12,16 @@
 //       - guide
 //       - { dir: dev, label: Developer docs }
 //       - { dir: handbook, items: [guides, { dir: reports, order: newest-first }] }  # see sidebar.mjs
+//     redirects:                     # pages that moved (see redirects.mjs)
+//       /guide/old/: /guide/new/
+//       /old-folder/*: /new-folder/*
 //   vocabulary:                # names every diagram draws the same way
 //     API: { label: Shop API, icon: "gcp:cloud-run" }
 
 import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
+import { parseRedirects } from "./redirects.mjs";
 
 export const CONFIG_FILE = "in-ctrl.config.yaml";
 
@@ -38,6 +42,7 @@ export function loadConfig(root = process.cwd()) {
     base: raw.site?.base ?? "/",
     siteUrl: raw.site?.url ?? "",
     sidebar: (raw.site?.sidebar ?? []).map((e) => (typeof e === "string" ? { dir: e } : e)),
+    redirects: parseRedirects(raw.site?.redirects),
     vocabulary: raw.vocabulary ?? {},
   };
 }

@@ -6,6 +6,8 @@
 //   in-ctrl dev                 every diagram, light and dark, in the browser
 //   in-ctrl site build [DIR]    the docs site (default DIR: dist-docs)
 //   in-ctrl site dev            the docs site, live
+//   in-ctrl site serve [DIR]    a built site over HTTP: its 404 page, site.redirects
+//                               (--host HOST, default 127.0.0.1; --port PORT, default 8080)
 //
 // Options: --root DIR (the project; default: the current directory).
 
@@ -20,6 +22,9 @@ const option = (name) => {
   return value;
 };
 const root = option("--root");
+const host = option("--host");
+const port = option("--port");
+const dirOption = option("--dir");
 const all = args.includes("--all");
 const positional = args.filter((a) => !a.startsWith("--"));
 const config = loadConfig(root);
@@ -46,7 +51,10 @@ switch (command) {
     const { buildSite, devSite } = await import("../src/node/site.mjs");
     if (sub === "build") await buildSite(config, dir ?? "dist-docs");
     else if (sub === "dev") await devSite(config);
-    else usage();
+    else if (sub === "serve") {
+      const { serveSite } = await import("../src/node/serve.mjs");
+      await serveSite(config, dirOption ?? dir ?? "dist-docs", { host: host ?? "127.0.0.1", port: port ? Number(port) : 8080 });
+    } else usage();
     break;
   }
   default:
@@ -54,6 +62,6 @@ switch (command) {
 }
 
 function usage() {
-  console.error("usage: in-ctrl render [--all] | check | dev | site build [DIR] | site dev   [--root DIR]");
+  console.error("usage: in-ctrl render [--all] | check | dev | site build [DIR] | site dev | site serve [DIR] [--host H] [--port P]   [--root DIR]");
   process.exit(2);
 }

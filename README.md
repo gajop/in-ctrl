@@ -22,6 +22,7 @@ npx in-ctrl check                   # are the PNGs current?
 npx in-ctrl dev                     # every diagram, light and dark, in the browser
 npx in-ctrl site dev                # the docs site, live
 npx in-ctrl site build dist-docs    # the docs site, for hosting
+npx in-ctrl site serve dist-docs --host 0.0.0.0 --port 8080   # serve a built site
 ```
 
 Settings live in `in-ctrl.config.yaml` at the project root:
@@ -64,6 +65,19 @@ site:
 ### Reading width
 
 The header has buttons that hide the sidebar and the table of contents (`[` and `]` from the keyboard); the page keeps the reader's choice. The content column starts next to the sidebar and widens to the whole page when both are hidden.
+
+### Moved pages and the 404 page
+
+When pages move, list their old paths under `site.redirects` so old links keep working. A key ending in `*` moves a whole folder, page by page:
+
+```yaml
+site:
+  redirects:
+    /guide/setup/: /guides/setup/
+    /using/*: /guides/using/*
+```
+
+`site build` writes a small redirect page at each old path (any static host follows it), never over a page that exists. `site serve` answers old paths with a 302, serves folders' `index.html`, and gives anything missing the site's own 404 page with status 404, using only Node.
 
 ## Publish the site on GitHub Pages
 

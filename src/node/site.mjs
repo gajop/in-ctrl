@@ -11,6 +11,7 @@ import { stage } from "./stage.mjs";
 import { projectPlugin } from "./project.mjs";
 import { docsWatchPlugin } from "./docs-watch.mjs";
 import { sidebarFor } from "./sidebar.mjs";
+import { writeRedirectPages } from "./redirects.mjs";
 
 const PACKAGE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const SITE = path.join(PACKAGE, "site");
@@ -115,7 +116,8 @@ export async function buildSite(config, outDir) {
   } finally {
     fs.rmSync(work, { recursive: true, force: true });
   }
-  console.log(`site written to ${outDir}`);
+  const moved = writeRedirectPages(config.redirects ?? [], out, config.base);
+  console.log(`site written to ${outDir}${moved.length ? ` (${moved.length} redirect pages)` : ""}`);
 }
 
 export async function devSite(config) {
