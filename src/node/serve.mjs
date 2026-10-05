@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
-import { joinBase, redirectFor } from "./redirects.mjs";
+import { REDIRECT_MARK, joinBase, redirectFor } from "./redirects.mjs";
 
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -78,6 +78,13 @@ export function siteHandler(dir, { base = "/", redirects = [] } = {}) {
     const file = path.resolve(root, "." + path.posix.normalize("/" + sitePath));
     if (file !== root && !file.startsWith(root + path.sep)) return missing(res, head);
 
+    // Moved pages: a 302, whether the build left a redirect page there or nothing at all.
+    const to = redirectFor(redirects, sitePath);
+    if (to && isRedirectOrMissing(file)) {
+      res.writeHead(302, { location: joinBase(base, to) + url.search });
+      return res.end();
+    }
+
     let stat = fs.existsSync(file) ? fs.statSync(file) : null;
     if (stat?.isDirectory()) {
       if (!pathname.endsWith("/")) {
@@ -89,14 +96,23 @@ export function siteHandler(dir, { base = "/", redirects = [] } = {}) {
       stat = null;
     }
     if (stat?.isFile()) return send(res, 200, file, head);
-
-    const to = redirectFor(redirects, sitePath);
-    if (to) {
-      res.writeHead(302, { location: joinBase(base, to) + url.search });
-      return res.end();
-    }
     return missing(res, head);
   };
+}
+
+/** True if nothing is at `file`, or only a redirect page `site build` wrote. */
+function isRedirectOrMissing(file) {
+  if (!fs.existsSync(file)) return true;
+  const page = fs.statSync(file).isDirectory() ? path.join(file, "index.html") : file;
+  if (!fs.existsSync(page)) return true;
+  const fd = fs.openSync(page, "r");
+  try {
+    const buf = Buffer.alloc(256);
+    const n = fs.readSync(fd, buf, 0, buf.length, 0);
+    return buf.subarray(0, n).toString("utf8").includes(REDIRECT_MARK);
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 export async function serveSite(config, dir, { host = "127.0.0.1", port = 8080 } = {}) {

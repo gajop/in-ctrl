@@ -100,6 +100,23 @@ test("build: a redirect page per moved page, never over an existing page", () =>
   assert.equal(fs.readFileSync(path.join(dir, "guides/using/index.html"), "utf8"), "<h1>using</h1>");
 });
 
+test("serve: a path the build left a redirect page at answers with a 302; a real page at a redirected path is kept", async () => {
+  const dir = site();
+  const rules = parseRedirects({ "/using/*": "/guides/using/*", "/guides/using/": "/elsewhere/" });
+  writeRedirectPages(rules, dir, "/");
+  const { server, get } = await serve(dir, { base: "/", redirects: rules });
+  try {
+    const moved = await get("/using/checkout/");
+    assert.equal(moved.status, 302);
+    assert.equal(moved.headers.location, "/guides/using/checkout/");
+    const real = await get("/guides/using/");
+    assert.equal(real.status, 200);
+    assert.equal(real.body, "<h1>using</h1>");
+  } finally {
+    server.close();
+  }
+});
+
 test("config: site.redirects become rules", async () => {
   const { loadConfig } = await import("../src/node/config.mjs");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "in-ctrl-config-test-"));

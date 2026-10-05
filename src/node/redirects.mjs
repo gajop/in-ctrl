@@ -49,7 +49,7 @@ export function writeRedirectPages(rules, outDir, base = "/") {
     if (fs.existsSync(file)) return;
     const href = joinBase(base, toPath);
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, `<!doctype html><meta charset="utf-8"><title>Moved</title><meta http-equiv="refresh" content="0; url=${href}"><link rel="canonical" href="${href}"><p>Moved to <a href="${href}">${href}</a>.</p>\n`);
+    fs.writeFileSync(file, `<!doctype html><meta charset="utf-8"><meta name="generator" content="${REDIRECT_MARK}"><title>Moved</title><meta http-equiv="refresh" content="0; url=${href}"><link rel="canonical" href="${href}"><p>Moved to <a href="${href}">${href}</a>.</p>\n`);
     written.push(fromPath);
   };
   for (const r of rules) {
@@ -69,6 +69,9 @@ export function writeRedirectPages(rules, outDir, base = "/") {
   }
   return written;
 }
+
+/** Marks the redirect pages `site build` writes, so `site serve` answers those paths with a 302. */
+export const REDIRECT_MARK = "in-ctrl redirect";
 
 export function joinBase(base, sitePath) {
   return (base.replace(/\/+$/, "") + sitePath).replace(/\/{2,}/g, "/");
