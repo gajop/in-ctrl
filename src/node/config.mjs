@@ -11,6 +11,7 @@
 //     sidebar:                       # top-level docs folders, in order (default: all, A to Z)
 //       - guide
 //       - { dir: dev, label: Developer docs }
+//       - { dir: handbook, items: [guides, { dir: reports, order: newest-first }] }  # see sidebar.mjs
 //   vocabulary:                # names every diagram draws the same way
 //     API: { label: Shop API, icon: "gcp:cloud-run" }
 

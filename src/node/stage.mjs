@@ -101,7 +101,7 @@ function transform(config, source, text, pages) {
     const yaml = abs.replace(/\.png$/, ".diagram.yaml");
     if (abs.endsWith(".png") && fs.existsSync(yaml)) {
       const key = path.relative(config.root, yaml).replace(/\\/g, "/");
-      return `<figure class="in-ctrl-figure"><div class="in-ctrl-diagram" data-file="${key}" role="img" aria-label="${escapeAttr(alt)}"></div><noscript><img src="${imageRoute(config, abs)}" alt="${escapeAttr(alt)}"></noscript>${alt ? `<figcaption>${escapeHtml(alt)}</figcaption>` : ""}</figure>`;
+      return `<figure class="in-ctrl-figure"><div class="in-ctrl-diagram" data-file="${key}" data-png="${imageRoute(config, abs)}" role="img" aria-label="${escapeAttr(alt)}"></div><noscript><img class="in-ctrl-png" src="${imageRoute(config, abs)}" alt="${escapeAttr(alt)}"></noscript>${alt ? `<figcaption>${escapeHtml(alt)}</figcaption>` : ""}</figure>`;
     }
     return abs.startsWith(config.docs) ? `![${alt}](${imageRoute(config, abs)})` : `![${alt}](${githubUrl(config, abs, "raw")})`;
   });

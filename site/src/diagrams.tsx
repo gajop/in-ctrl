@@ -20,7 +20,18 @@ const theme = (): Theme => (document.documentElement.dataset.theme === "dark" ? 
 function draw() {
   for (const host of document.querySelectorAll<HTMLElement>(".in-ctrl-diagram")) {
     const source = (specs as Record<string, string>)[host.dataset.file ?? ""];
-    if (!source) continue;
+    if (!source) {
+      // No live source for it (renamed, or not part of this build): show the
+      // rendered PNG instead of an empty box, on a light backdrop (styles.css).
+      if (host.dataset.png && !host.querySelector("img")) {
+        const img = document.createElement("img");
+        img.className = "in-ctrl-png";
+        img.src = host.dataset.png;
+        img.alt = "";
+        host.append(img);
+      }
+      continue;
+    }
     let root = roots.get(host);
     if (!root) {
       const shadow = host.attachShadow({ mode: "open" });

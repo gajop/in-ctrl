@@ -17,3 +17,124 @@
 .in-ctrl-diagram .cd {
   border: 1px solid var(--sl-color-hairline);
 }
+
+/* Layout: a wider content column that starts next to the sidebar instead of
+   floating in the middle, a narrower table of contents, and both side panels
+   hideable (site/src/layout.ts sets data-ic-sidebar / data-ic-toc="hidden"). */
+:root {
+  --sl-content-width: 96rem;
+  --ic-toc-width: 15rem;
+}
+
+@media (min-width: 50rem) {
+  html[data-ic-sidebar="hidden"] .sidebar-pane {
+    display: none;
+  }
+
+  html[data-ic-sidebar="hidden"][data-has-sidebar] {
+    --sl-content-inline-start: 0rem;
+  }
+}
+
+@media (min-width: 72rem) {
+  .right-sidebar-container {
+    width: var(--ic-toc-width);
+  }
+
+  /* The panel is position: fixed, so its width can't come from its container. */
+  .right-sidebar {
+    width: var(--ic-toc-width);
+  }
+
+  .right-sidebar-panel .sl-container {
+    width: calc(var(--ic-toc-width) - 2 * var(--sl-sidebar-pad-x));
+    max-width: none;
+  }
+
+  [data-has-toc] .main-pane,
+  [data-has-sidebar][data-has-toc] .main-pane {
+    --sl-content-margin-inline: 0 auto;
+    width: calc(100% - var(--ic-toc-width));
+  }
+
+  html[data-ic-toc="hidden"] .right-sidebar-container {
+    display: none;
+  }
+
+  html[data-ic-toc="hidden"] .main-pane,
+  html[data-ic-toc="hidden"][data-has-sidebar][data-has-toc] .main-pane {
+    width: 100%;
+  }
+}
+
+/* With both panels hidden, the page gets the whole width. */
+html[data-ic-sidebar="hidden"][data-ic-toc="hidden"] {
+  --sl-content-width: 110rem;
+}
+
+/* Wide media use the column's width; wide tables scroll inside it. */
+.sl-markdown-content img,
+.sl-markdown-content video {
+  max-width: 100%;
+  height: auto;
+}
+
+.sl-markdown-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* The header's hide/show buttons. */
+.ic-toggles {
+  display: flex;
+  gap: 0.25rem;
+  padding-inline-end: 0.5rem;
+  margin-inline-end: 0.5rem;
+  border-inline-end: 1px solid var(--sl-color-hairline-light);
+}
+
+.ic-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--sl-color-gray-3);
+  cursor: pointer;
+}
+
+.ic-toggle:hover,
+.ic-toggle:focus-visible {
+  color: var(--sl-color-white);
+  border-color: var(--sl-color-hairline-light);
+}
+
+.ic-toggle[aria-pressed="false"] {
+  color: var(--sl-color-gray-5);
+}
+
+/* A diagram shown as its rendered PNG (no script, or no live source): the PNG
+   is drawn for a light page, so give it its own light backdrop on dark pages. */
+.in-ctrl-png {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+:root[data-theme="dark"] .in-ctrl-png {
+  background: #ffffff;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .in-ctrl-png {
+    background: #ffffff;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+  }
+}

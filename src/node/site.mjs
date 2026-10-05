@@ -10,6 +10,7 @@ import starlight from "@astrojs/starlight";
 import { stage } from "./stage.mjs";
 import { projectPlugin } from "./project.mjs";
 import { docsWatchPlugin } from "./docs-watch.mjs";
+import { sidebarFor } from "./sidebar.mjs";
 
 const PACKAGE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const SITE = path.join(PACKAGE, "site");
@@ -48,11 +49,10 @@ function dependencies() {
 }
 
 function astroConfig(config, outDir, work) {
-  let groups = stage(config, path.join(work, "src/content/docs"), path.join(work, "public/_docs-assets"));
-  const label = (name) => config.sidebar.find((e) => e.dir === name)?.label ?? name.charAt(0).toUpperCase() + name.slice(1).replace(/[-_]/g, " ");
+  const docsOut = path.join(work, "src/content/docs");
+  const groups = stage(config, docsOut, path.join(work, "public/_docs-assets"));
   // The folders the config lists come first, in its order; the rest follow A to Z.
-  const listed = config.sidebar.map((e) => e.dir).filter((d) => groups.includes(d));
-  groups = [...listed, ...groups.filter((g) => !listed.includes(g))];
+  const sidebar = groups.length ? sidebarFor(config, docsOut, groups) : undefined;
   return {
     configFile: false,
     root: work,
@@ -69,9 +69,9 @@ function astroConfig(config, outDir, work) {
         description: config.description || undefined,
         social: config.repo ? [{ icon: "github", label: "GitHub", href: config.repo }] : [],
         customCss: [path.join(SITE, "src/styles.css")],
-        sidebar: groups.length
-          ? groups.map((g) => ({ label: label(g), items: [{ autogenerate: { directory: g } }] }))
-          : undefined,
+        sidebar,
+        // Before the page paints: hide the sidebar or the table of contents if the reader did.
+        head: [{ tag: "script", content: LAYOUT_STATE }],
       }),
       react(),
       diagramsScript(),
@@ -87,7 +87,10 @@ function astroConfig(config, outDir, work) {
   };
 }
 
-/** Every page loads site/src/diagrams.tsx, which draws the live diagrams. */
+/** The reader's choice to hide the sidebar or the table of contents, set on <html> before paint. */
+const LAYOUT_STATE = `for (const part of ["sidebar", "toc"]) { try { if (localStorage.getItem("in-ctrl:" + part) === "hidden") document.documentElement.dataset["ic" + part.charAt(0).toUpperCase() + part.slice(1)] = "hidden"; } catch {} }`;
+
+/** Every page loads site/src/diagrams.tsx, which draws the live diagrams, and site/src/layout.ts. */
 function diagramsScript() {
   return {
     name: "in-ctrl-diagrams",
@@ -96,6 +99,7 @@ function diagramsScript() {
         // These React roots are not Astro islands. Run the renderer's
         // preamble before importing modules transformed for Fast Refresh.
         injectScript("page", `import "astro:scripts/before-hydration.js";\nimport(${JSON.stringify(path.join(SITE, "src/diagrams.tsx"))});`);
+        injectScript("page", `import(${JSON.stringify(path.join(SITE, "src/layout.ts"))});`);
       },
     },
   };

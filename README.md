@@ -43,6 +43,28 @@ vocabulary:                      # names every diagram draws the same way
 
 The site takes your Markdown as it is: the first `# Heading` is the page title, `README.md` is a folder's page, links between docs become site links, and links to code go to GitHub.
 
+### Sidebar
+
+`sidebar` lists the top-level docs folders in order (the rest follow A to Z). A folder listed by name or as `{ dir, label }` is listed A to Z inside. Give it `items` or `order` to name and order what's inside it too:
+
+```yaml
+site:
+  sidebar:
+    - guide
+    - dir: handbook
+      label: Handbook
+      items:                       # sub-folders in this order; the rest follow A to Z
+        - { dir: guides, label: Guides }
+        - reference                # labelled "Reference"
+        - { dir: articles, label: Reports, order: newest-first, collapsed: true }
+```
+
+`order` is `az` (the default) or `newest-first` (Z to A by file name, for dated reports); a folder's own page always comes first.
+
+### Reading width
+
+The header has buttons that hide the sidebar and the table of contents (`[` and `]` from the keyboard); the page keeps the reader's choice. The content column starts next to the sidebar and widens to the whole page when both are hidden.
+
 ## Publish the site on GitHub Pages
 
 In the repository's settings, set Pages to deploy from GitHub Actions, then add:
