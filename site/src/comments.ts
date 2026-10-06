@@ -208,8 +208,11 @@ function installPage() {
     if (!block) return;
     block.el.classList.add("ic-target");
     const r = block.el.getBoundingClientRect();
-    button.style.top = `${r.top + window.scrollY}px`;
-    button.style.left = `${Math.max(2, r.left + window.scrollX - 32)}px`;
+    // In the left margin; where there is none (a phone), just above the block's right end,
+    // so the button doesn't cover its first words.
+    const roomy = r.left >= 34;
+    button.style.top = `${r.top + window.scrollY - (roomy ? 0 : 28)}px`;
+    button.style.left = `${roomy ? r.left + window.scrollX - 32 : r.right + window.scrollX - 26}px`;
   };
   document.addEventListener("mousemove", show);
   document.addEventListener("pointerdown", (e) => e.pointerType === "touch" && show(e));
