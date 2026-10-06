@@ -7,9 +7,10 @@ import { sidebarFor, labelOf } from "../src/node/sidebar.mjs";
 
 function staged(files) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "in-ctrl-sidebar-"));
-  for (const f of files) {
-    fs.mkdirSync(path.dirname(path.join(root, f)), { recursive: true });
-    fs.writeFileSync(path.join(root, f), "# x\n");
+  for (const f of Array.isArray(files) ? files.map((f) => [f, "# x\n"]) : Object.entries(files)) {
+    const [name, text] = f;
+    fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
+    fs.writeFileSync(path.join(root, name), text);
   }
   return root;
 }
@@ -53,4 +54,27 @@ test("a bad order is an error, and labels read as words", () => {
   const docs = staged(["a/x.md"]);
   assert.throws(() => sidebarFor({ sidebar: [{ dir: "a", order: "sideways" }] }, docs, ["a"]), /not one of/);
   assert.equal(labelOf("getting-started"), "Getting started");
+});
+
+test("newest-first lists numbered pages by number, pinned pages first, the rest Z to A", () => {
+  const page = (front) => `---\ntitle: "x"\n${front}---\n`;
+  const docs = staged({
+    "r/index.md": page(""),
+    "r/2026-10-03-first.md": page("number: 1\n"),
+    // Added later than 2026-10-05-b, though its name sorts first.
+    "r/2026-10-05-a.md": page("number: 3\n"),
+    "r/2026-10-05-b.md": page("number: 2\n"),
+    "r/2026-10-10-unnumbered.md": page(""),
+    "r/2026-10-04-journal.md": page("pinned: true\n"),
+  });
+  const [r] = sidebarFor({ sidebar: [{ dir: "r", order: "newest-first" }] }, docs, ["r"]);
+  assert.deepEqual(
+    r.items.map((i) => i.slug),
+    ["r", "r/2026-10-04-journal", "r/2026-10-05-a", "r/2026-10-05-b", "r/2026-10-03-first", "r/2026-10-10-unnumbered"],
+  );
+  const [az] = sidebarFor({ sidebar: [{ dir: "r", items: [] }] }, docs, ["r"]);
+  assert.deepEqual(
+    az.items.map((i) => i.slug),
+    ["r", "r/2026-10-04-journal", "r/2026-10-03-first", "r/2026-10-05-a", "r/2026-10-05-b", "r/2026-10-10-unnumbered"],
+  );
 });

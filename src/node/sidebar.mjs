@@ -13,11 +13,14 @@
 //         - { dir: articles, label: Reports, order: newest-first }
 //
 // `order` is how a folder's pages are listed: `az` (the default) or
-// `newest-first` (Z to A by file name, for dated reports). A folder's own
-// page (its README) always comes first. `collapsed: true` starts a group closed.
+// `newest-first`, for reports: pages with a `number` (front matter, see
+// stage.mjs) highest first, then the rest Z to A by file name. A folder's own
+// page (its README) always comes first, then pages marked `pinned: true`.
+// `collapsed: true` starts a group closed.
 
 import fs from "node:fs";
 import path from "node:path";
+import { splitFrontMatter } from "./stage.mjs";
 
 const ORDERS = ["az", "newest-first"];
 
@@ -71,9 +74,15 @@ function group(folder, slug, entry) {
 
   const items = [];
   if (pages.includes("index")) items.push({ slug });
-  const rest = pages.filter((p) => p !== "index").sort();
-  if (entry.order === "newest-first") rest.reverse();
-  for (const page of rest) items.push({ slug: `${slug}/${page}` });
+  const meta = new Map(pages.map((p) => [p, pageMeta(path.join(folder, `${p}.md`))]));
+  const others = pages.filter((p) => p !== "index").sort();
+  const pinned = others.filter((p) => meta.get(p).pinned);
+  let rest = others.filter((p) => !meta.get(p).pinned);
+  if (entry.order === "newest-first") {
+    const numbered = rest.filter((p) => meta.get(p).number !== undefined).sort((a, b) => meta.get(b).number - meta.get(a).number);
+    rest = [...numbered, ...rest.filter((p) => meta.get(p).number === undefined).reverse()];
+  }
+  for (const page of [...pinned, ...rest]) items.push({ slug: `${slug}/${page}` });
 
   const named = children.map((c) => c.dir).filter((d) => folders.includes(d));
   for (const dir of [...named, ...folders.filter((f) => !named.includes(f))]) {
@@ -81,6 +90,12 @@ function group(folder, slug, entry) {
     items.push(group(path.join(folder, dir), `${slug}/${dir}`, child));
   }
   return withCollapsed({ label: entry.label ?? labelOf(path.basename(slug)), items }, entry);
+}
+
+/** A staged page's `number` and `pinned`, from its front matter. */
+function pageMeta(file) {
+  const { meta } = splitFrontMatter(fs.readFileSync(file, "utf8"), file);
+  return { number: meta.number, pinned: meta.pinned === true };
 }
 
 /** Whether a staged folder has a page anywhere below it. */

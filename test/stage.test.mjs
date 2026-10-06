@@ -76,3 +76,30 @@ test("asset-only folders do not become empty sidebar groups", () => {
   });
   assert.deepEqual(groups, ["ai"]);
 });
+
+test("a page's front matter sets its sidebar label and number, and stays off the page", () => {
+  const { read } = project({
+    "docs/reports/2026-10-05-beta.md": "---\nnumber: 27\nsidebar_label: Open beta\n---\n# 2026-10-05 — Beta opens to everyone, and what changed\n\nBody.\n",
+    "docs/reports/2026-10-04-alpha.md": "---\nnumber: 3\n---\n\n# Alpha\n",
+    "docs/reports/journal.md": "---\npinned: true\nsidebar_label: Journal\n---\n# Work journal\n",
+    "docs/reports/plain.md": "# Plain\n\n---\n\nA rule, not front matter.\n",
+  });
+  const beta = read("reports/2026-10-05-beta.md");
+  assert.match(beta, /title: "2026-10-05 — Beta opens to everyone, and what changed"/);
+  assert.match(beta, /sidebar:\n  label: "27 · Open beta"/);
+  assert.match(beta, /\nnumber: 27\n/);
+  assert.doesNotMatch(beta, /sidebar_label/);
+  assert.match(beta, /---\nBody\.\n$/);
+  assert.match(read("reports/2026-10-04-alpha.md"), /label: "3 · Alpha"/);
+  const journal = read("reports/journal.md");
+  assert.match(journal, /label: "Journal"/);
+  assert.match(journal, /\npinned: true\n/);
+  const plain = read("reports/plain.md");
+  assert.doesNotMatch(plain, /sidebar:/);
+  assert.match(plain, /A rule, not front matter\./);
+});
+
+test("bad front matter names the page", () => {
+  assert.throws(() => project({ "docs/a/b.md": "---\nnumber: two\n---\n# B\n" }), /docs\/a\/b\.md: number must be a whole number/);
+  assert.throws(() => project({ "docs/a/b.md": "---\nnumber: [\n---\n# B\n" }), /docs\/a\/b\.md: front matter is not valid YAML/);
+});

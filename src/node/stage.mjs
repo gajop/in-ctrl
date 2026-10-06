@@ -2,6 +2,14 @@
 // asking authors to change anything:
 //
 // - the first `# Heading` becomes the page title (Starlight's frontmatter);
+// - a page may start with its own front matter, for the sidebar only:
+//     ---
+//     number: 27                 # its place in a numbered series: "27 · …" in the sidebar,
+//                                #   and the order of an `order: newest-first` folder
+//     sidebar_label: Beta       # a short sidebar label (default: the title)
+//     pinned: true               # listed first in its folder, after the folder's own page
+//     ---
+//   The page keeps its full title;
 // - README.md in a folder becomes that folder's page; the project README is
 //   the home page; a top-level INDEX.md becomes /contents/;
 // - links to other docs become site links; links to anything else in the
@@ -11,6 +19,40 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import YAML from "yaml";
+
+/** The front matter keys a source page may set (see the top of this file). */
+const PAGE_KEYS = ["number", "sidebar_label", "pinned"];
+
+/**
+ * A source page's own front matter (a leading `---` YAML block) and the text
+ * after it. `name` is for errors.
+ */
+export function splitFrontMatter(text, name = "page") {
+  const m = text.match(/^---\r?\n([\s\S]*?\r?\n)?---[ \t]*(\r?\n|$)/);
+  if (!m) return { meta: {}, body: text };
+  let meta;
+  try {
+    meta = YAML.parse(m[1] ?? "") ?? {};
+  } catch (err) {
+    throw new Error(`in-ctrl: ${name}: front matter is not valid YAML: ${err.message.split("\n")[0]}`);
+  }
+  if (typeof meta !== "object" || Array.isArray(meta)) throw new Error(`in-ctrl: ${name}: front matter must be a map`);
+  if (meta.number !== undefined && !(Number.isInteger(meta.number) && meta.number >= 0)) {
+    throw new Error(`in-ctrl: ${name}: number must be a whole number, not ${JSON.stringify(meta.number)}`);
+  }
+  if (meta.sidebar_label !== undefined && typeof meta.sidebar_label !== "string") {
+    throw new Error(`in-ctrl: ${name}: sidebar_label must be text`);
+  }
+  if (meta.pinned !== undefined && typeof meta.pinned !== "boolean") throw new Error(`in-ctrl: ${name}: pinned must be true or false`);
+  return { meta, body: text.slice(m[0].length) };
+}
+
+/** A page's sidebar label: its sidebar_label or title, after its number. */
+export function sidebarLabel(meta, title) {
+  const label = meta.sidebar_label ?? title;
+  return meta.number === undefined ? label : `${meta.number} · ${label}`;
+}
 
 /**
  * Stage the docs: pages into `out`, the images they show into `assets` (served
@@ -97,7 +139,8 @@ export function routeOf(config, slug) {
 }
 
 function transform(config, source, text, pages) {
-  const lines = text.split("\n");
+  const { meta, body: content } = splitFrontMatter(text, path.relative(config.root, source));
+  const lines = content.split("\n");
   let title = path.basename(source, ".md");
   const h1 = lines.findIndex((l) => /^# /.test(l));
   if (h1 !== -1) {
@@ -129,6 +172,9 @@ function transform(config, source, text, pages) {
   });
   const front = [`title: ${JSON.stringify(title)}`];
   front.push(config.repo ? `editUrl: ${JSON.stringify(githubUrl(config, source, "edit"))}` : "editUrl: false");
+  if (meta.number !== undefined || meta.sidebar_label !== undefined) front.push("sidebar:", `  label: ${JSON.stringify(sidebarLabel(meta, title))}`);
+  // Kept for sidebar.mjs, which orders folders by them; Starlight ignores them.
+  for (const key of PAGE_KEYS.filter((k) => k !== "sidebar_label" && meta[k] !== undefined)) front.push(`${key}: ${JSON.stringify(meta[key])}`);
   if (source === config.home) {
     front.push("template: splash", "hero:", `  title: ${JSON.stringify(title)}`);
     if (config.description) front.push(`  tagline: ${JSON.stringify(config.description)}`);

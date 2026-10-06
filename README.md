@@ -63,7 +63,20 @@ site:
         - { dir: articles, label: Reports, order: newest-first, collapsed: true }
 ```
 
-`order` is `az` (the default) or `newest-first` (Z to A by file name, for dated reports); a folder's own page always comes first.
+`order` is `az` (the default) or `newest-first`, for reports: numbered pages highest number first, then the rest Z to A by file name. A folder's own page always comes first, then pinned pages.
+
+A page can start with front matter for the sidebar; the page keeps its full title:
+
+```markdown
+---
+number: 27                 # "27 · …" in the sidebar; orders a newest-first folder
+sidebar_label: Beta       # short sidebar label (default: the title)
+pinned: true               # first in its folder, after the folder's own page
+---
+# 2026-10-05 — Beta opens to everyone, and what changed
+```
+
+Numbers are the author's to keep: a new page takes the next one, and old ones never change, so links and references to "report 27" stay true.
 
 ### Reading width
 

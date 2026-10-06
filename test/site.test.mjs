@@ -31,6 +31,9 @@ test("built and live sites populate nested sidebars and initialize React before 
     fs.mkdirSync(path.join(root, "docs/guides/setup"), { recursive: true });
     fs.writeFileSync(path.join(root, "docs/guides/README.md"), "# Guides\n");
     fs.writeFileSync(path.join(root, "docs/guides/setup/install.md"), "# Install\n");
+    fs.mkdirSync(path.join(root, "docs/guides/notes"));
+    fs.writeFileSync(path.join(root, "docs/guides/notes/2026-10-05-beta.md"), "---\nnumber: 2\nsidebar_label: Beta\n---\n# 2026-10-05 — Beta opens to everyone\n");
+    fs.writeFileSync(path.join(root, "docs/guides/notes/2026-10-04-alpha.md"), "---\nnumber: 1\n---\n# Alpha\n");
     fs.mkdirSync(path.join(root, "docs/assets"));
     fs.writeFileSync(path.join(root, "docs/assets/example.json"), "{}");
     const out = path.join(root, "dist");
@@ -42,6 +45,12 @@ test("built and live sites populate nested sidebars and initialize React before 
       assert.ok(html.includes(`href="/shop/${route}"`), `Missing built sidebar link: ${route}`);
     }
     assert.ok(!html.includes("<summary>Assets"), "Asset-only folder created an empty sidebar group");
+    // Numbered pages: short labels in the sidebar, the full title on the page.
+    assert.match(html, /<span[^>]*>\s*2 · Beta\s*<\/span>/);
+    assert.match(html, /<span[^>]*>\s*1 · Alpha\s*<\/span>/);
+    const beta = fs.readFileSync(path.join(out, "guides/notes/2026-10-05-beta/index.html"), "utf8");
+    assert.match(beta, /<h1[^>]*>2026-10-05 — Beta opens to everyone<\/h1>/);
+    assert.ok(!beta.includes("sidebar_label"), "front matter leaked into the page");
 
     dev = cli(root, ["site", "dev"]);
     const url = await new Promise((resolve, reject) => {
