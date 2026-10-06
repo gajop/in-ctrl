@@ -17,6 +17,7 @@
 //       /old-folder/*: /new-folder/*
 //   vocabulary:                # names every diagram draws the same way
 //     API: { label: Shop API, icon: "gcp:cloud-run" }
+//   comments: .in-ctrl/comments.json   # where the live site keeps comments; false turns them off
 
 import fs from "node:fs";
 import path from "node:path";
@@ -44,6 +45,7 @@ export function loadConfig(root = process.cwd()) {
     sidebar: (raw.site?.sidebar ?? []).map((e) => (typeof e === "string" ? { dir: e } : e)),
     redirects: parseRedirects(raw.site?.redirects),
     vocabulary: raw.vocabulary ?? {},
+    comments: raw.comments === false ? null : path.resolve(root, raw.comments ?? ".in-ctrl/comments.json"),
   };
 }
 

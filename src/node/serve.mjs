@@ -1,11 +1,14 @@
 // `in-ctrl site serve`: a built site over HTTP with nothing but Node. Folders serve their
 // index.html, moved pages answer with a 302 (site.redirects), and anything missing gets the
-// site's own 404 page with status 404.
+// site's own 404 page with status 404. With comments on (config.comments), it also answers
+// the comments API (comments.mjs) against the project's comments file, so readers of the
+// built site comment as they would on `site dev`.
 
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { REDIRECT_MARK, joinBase, redirectFor } from "./redirects.mjs";
+import { commentsApi, watchComments } from "./comments.mjs";
 
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -119,11 +122,25 @@ export async function serveSite(config, dir, { host = "127.0.0.1", port = 8080 }
   const root = path.resolve(dir);
   if (!fs.existsSync(path.join(root, "index.html")) && !fs.existsSync(path.join(root, "404.html")))
     throw new Error(`in-ctrl: ${dir} doesn't look like a built site (run: in-ctrl site build ${dir})`);
-  const server = http.createServer(siteHandler(root, { base: config.base, redirects: config.redirects }));
+  const site = siteHandler(root, { base: config.base, redirects: config.redirects });
+  const api = config.comments ? commentsApi(config) : null;
+  const unwatch = api ? watchComments(api.file, api.changed) : () => {};
+  const server = http.createServer((req, res) => {
+    if (api?.handle(req, res)) return;
+    site(req, res);
+  });
+  // The comments' event streams never end on their own: end them so close() can finish.
+  const close = server.close.bind(server);
+  server.close = (callback) => {
+    unwatch();
+    api?.close();
+    return close(callback);
+  };
   await new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(port, host, resolve);
   });
   console.log(`site on http://${host}:${server.address().port}${config.base}`);
+  if (api) console.log(`comments in ${api.file}`);
   return server;
 }

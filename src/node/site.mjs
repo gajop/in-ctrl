@@ -12,6 +12,7 @@ import { projectPlugin } from "./project.mjs";
 import { docsWatchPlugin } from "./docs-watch.mjs";
 import { sidebarFor } from "./sidebar.mjs";
 import { writeRedirectPages } from "./redirects.mjs";
+import { commentsPlugin } from "./comments.mjs";
 
 const PACKAGE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const SITE = path.join(PACKAGE, "site");
@@ -69,17 +70,24 @@ function astroConfig(config, outDir, work) {
         title: config.title,
         description: config.description || undefined,
         social: config.repo ? [{ icon: "github", label: "GitHub", href: config.repo }] : [],
-        customCss: [path.join(SITE, "src/styles.css")],
+        customCss: [path.join(SITE, "src/styles.css"), ...(config.comments ? [path.join(SITE, "src/comments.css")] : [])],
         sidebar,
         // Before the page paints: hide the sidebar or the table of contents if the reader did.
         head: [{ tag: "script", content: LAYOUT_STATE }],
       }),
       react(),
-      diagramsScript(),
+      diagramsScript(config),
     ],
     vite: {
-      plugins: [projectPlugin(config), docsWatchPlugin(config, path.join(work, "src/content/docs"), path.join(work, "public/_docs-assets"))],
+      plugins: [
+        projectPlugin(config),
+        docsWatchPlugin(config, path.join(work, "src/content/docs"), path.join(work, "public/_docs-assets")),
+        ...(config.comments ? [commentsPlugin(config)] : []),
+      ],
       server: { fs: { allow: [PACKAGE, config.root, work] } },
+      // The page scripts load through dynamic imports Vite doesn't scan up front; it would
+      // find their dependencies on first view and reload the page (losing an open comment).
+      optimizeDeps: { include: ["react", "react-dom/client", "react/jsx-dev-runtime", "@xyflow/react", "elkjs/lib/elk.bundled.js", "yaml"] },
       // From the work folder, Vite leaves these integrations to Node, which
       // can't load the astro: modules they import. Bundle them instead.
       ssr: { noExternal: INTEGRATIONS },
@@ -91,8 +99,13 @@ function astroConfig(config, outDir, work) {
 /** The reader's choice to hide the sidebar or the table of contents, set on <html> before paint. */
 const LAYOUT_STATE = `for (const part of ["sidebar", "toc"]) { try { if (localStorage.getItem("in-ctrl:" + part) === "hidden") document.documentElement.dataset["ic" + part.charAt(0).toUpperCase() + part.slice(1)] = "hidden"; } catch {} }`;
 
-/** Every page loads site/src/diagrams.tsx, which draws the live diagrams, and site/src/layout.ts. */
-function diagramsScript() {
+/**
+ * Every page loads site/src/diagrams.tsx, which draws the live diagrams, site/src/layout.ts,
+ * and, with comments on, site/src/comments.ts. That one asks the server for the comments API
+ * (`site dev` and `site serve` answer it) and shows nothing where there is none, so a built
+ * site keeps working on any static host.
+ */
+function diagramsScript(config) {
   return {
     name: "in-ctrl-diagrams",
     hooks: {
@@ -101,6 +114,7 @@ function diagramsScript() {
         // preamble before importing modules transformed for Fast Refresh.
         injectScript("page", `import "astro:scripts/before-hydration.js";\nimport(${JSON.stringify(path.join(SITE, "src/diagrams.tsx"))});`);
         injectScript("page", `import(${JSON.stringify(path.join(SITE, "src/layout.ts"))});`);
+        if (config.comments) injectScript("page", `import(${JSON.stringify(path.join(SITE, "src/comments.ts"))});`);
       },
     },
   };

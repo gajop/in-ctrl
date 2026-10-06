@@ -1,0 +1,348 @@
+/* Comments on the live site (site/src/comments.ts). Nothing here shows unless
+   the comments API answered (body.ic-comments-on). */
+
+.ic-block-button {
+  position: absolute;
+  z-index: 20;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 6px;
+  background: var(--sl-color-bg);
+  font-size: 14px;
+  line-height: 24px;
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.ic-block-button:hover {
+  opacity: 1;
+  border-color: var(--sl-color-accent);
+}
+
+.ic-box-button {
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.ic-target {
+  outline: 1px dashed var(--sl-color-gray-4);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+.sl-markdown-content .ic-holder,
+.ic-holder {
+  margin: 0.5rem 0 1rem;
+  font-size: var(--sl-text-sm);
+}
+
+.ic-holder-row > td {
+  padding: 0.25rem 0.5rem;
+}
+
+.ic-thread,
+.ic-holder > .ic-composer {
+  border: 1px solid var(--sl-color-gray-5);
+  border-left: 3px solid var(--sl-color-accent);
+  border-radius: 6px;
+  background: var(--sl-color-gray-7, var(--sl-color-bg-nav));
+  padding: 0.5rem 0.75rem;
+}
+
+.ic-thread + .ic-thread,
+.ic-thread + .ic-composer {
+  margin-top: 0.5rem;
+}
+
+.ic-thread.ic-resolved {
+  border-left-color: var(--sl-color-gray-4);
+  opacity: 0.75;
+}
+
+.ic-thread.ic-flash {
+  box-shadow: 0 0 0 3px var(--sl-color-accent);
+  transition: box-shadow 0.3s;
+}
+
+.ic-comment + .ic-comment {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--sl-color-gray-5);
+}
+
+.ic-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: var(--sl-text-xs);
+  color: var(--sl-color-gray-3);
+}
+
+.ic-author {
+  font-weight: 600;
+  color: var(--sl-color-white);
+}
+
+.ic-from-author .ic-author {
+  color: var(--sl-color-orange-high, #d97706);
+}
+
+.ic-about-tag {
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-accent-high);
+}
+
+.ic-tools {
+  margin-left: auto;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.ic-body {
+  margin-top: 0.25rem;
+  color: var(--sl-color-white);
+  overflow-wrap: anywhere;
+}
+
+.ic-outdated {
+  margin-bottom: 0.4rem;
+  font-size: var(--sl-text-xs);
+  color: var(--sl-color-orange-high, #d97706);
+}
+
+.ic-actions,
+.ic-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.ic-resolved-tag {
+  font-size: var(--sl-text-xs);
+  color: var(--sl-color-green-high, #16a34a);
+}
+
+:is(.ic-thread, .ic-composer, .ic-panel) button {
+  padding: 0.1rem 0.55rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 5px;
+  background: var(--sl-color-bg);
+  color: var(--sl-color-gray-2);
+  font-size: var(--sl-text-xs);
+  cursor: pointer;
+}
+
+:is(.ic-thread, .ic-composer, .ic-panel) button:hover {
+  border-color: var(--sl-color-accent);
+  color: var(--sl-color-white);
+}
+
+.ic-composer .ic-save {
+  background: var(--sl-color-accent);
+  border-color: var(--sl-color-accent);
+  color: var(--sl-color-black);
+}
+
+.ic-composer textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 5px;
+  background: var(--sl-color-bg);
+  color: var(--sl-color-white);
+  font: inherit;
+  resize: vertical;
+}
+
+.ic-about {
+  display: block;
+  font-size: var(--sl-text-xs);
+  color: var(--sl-color-gray-3);
+}
+
+.ic-about select {
+  margin-left: 0.3rem;
+  background: var(--sl-color-bg);
+  color: var(--sl-color-white);
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 4px;
+}
+
+/* The panel */
+
+.ic-panel-toggle {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 30;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 999px;
+  background: var(--sl-color-bg-nav);
+  color: var(--sl-color-white);
+  font-size: var(--sl-text-sm);
+  cursor: pointer;
+  box-shadow: var(--sl-shadow-md);
+}
+
+.ic-panel-toggle.ic-has-replies {
+  border-color: var(--sl-color-orange-high, #d97706);
+}
+
+.ic-panel {
+  position: fixed;
+  right: 1rem;
+  bottom: 3.5rem;
+  z-index: 30;
+  width: min(28rem, calc(100vw - 2rem));
+  max-height: min(70vh, 40rem);
+  overflow: auto;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 8px;
+  background: var(--sl-color-bg-nav);
+  box-shadow: var(--sl-shadow-lg);
+  font-size: var(--sl-text-sm);
+}
+
+.ic-panel[hidden] {
+  display: none;
+}
+
+.ic-panel header,
+.ic-panel-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.ic-panel-tools label {
+  color: var(--sl-color-gray-2);
+  font-size: var(--sl-text-xs);
+}
+
+.ic-panel h3 {
+  margin: 0.75rem 0 0.25rem;
+  font-size: var(--sl-text-sm);
+}
+
+.ic-panel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ic-panel li a {
+  display: block;
+  padding: 0.35rem 0.5rem;
+  border-left: 3px solid var(--sl-color-accent);
+  border-radius: 4px;
+  color: var(--sl-color-white);
+  text-decoration: none;
+}
+
+.ic-panel li + li {
+  margin-top: 0.25rem;
+}
+
+.ic-panel li a:hover {
+  background: var(--sl-color-gray-6);
+}
+
+.ic-panel li.ic-from-author a {
+  border-left-color: var(--sl-color-orange-high, #d97706);
+}
+
+.ic-panel li.ic-resolved a {
+  border-left-color: var(--sl-color-gray-4);
+  opacity: 0.7;
+}
+
+.ic-where,
+.ic-last {
+  display: block;
+  font-size: var(--sl-text-xs);
+  color: var(--sl-color-gray-3);
+}
+
+.ic-empty,
+.ic-hint {
+  color: var(--sl-color-gray-3);
+  font-size: var(--sl-text-xs);
+}
+
+/* The rail */
+
+.ic-rail {
+  position: fixed;
+  top: var(--sl-nav-height, 3.5rem);
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  width: 8px;
+  pointer-events: none;
+}
+
+.ic-mark {
+  position: absolute;
+  right: 0;
+  width: 8px;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px 0 0 2px;
+  background: var(--sl-color-accent);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.ic-mark.ic-from-author {
+  background: var(--sl-color-orange-high, #d97706);
+}
+
+.ic-jump {
+  position: fixed;
+  right: 1rem;
+  bottom: 3.5rem;
+  z-index: 29;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ic-panel:not([hidden]) ~ .ic-jump {
+  display: none;
+}
+
+.ic-jump button {
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 5px;
+  background: var(--sl-color-bg-nav);
+  color: var(--sl-color-gray-2);
+  font-size: var(--sl-text-xs);
+  cursor: pointer;
+}
+
+.ic-jump button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ic-rail[hidden],
+.ic-jump[hidden] {
+  display: none;
+}

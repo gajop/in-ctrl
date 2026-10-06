@@ -20,9 +20,11 @@ npx playwright install chromium     # once, for rendering PNGs
 npx in-ctrl render                  # draw the diagrams that changed into their PNGs
 npx in-ctrl check                   # are the PNGs current?
 npx in-ctrl dev                     # every diagram, light and dark, in the browser
-npx in-ctrl site dev                # the docs site, live
+npx in-ctrl site dev                # the docs site, live (with comments)
 npx in-ctrl site build dist-docs    # the docs site, for hosting
-npx in-ctrl site serve dist-docs --host 0.0.0.0 --port 8080   # serve a built site
+npx in-ctrl site serve dist-docs --host 0.0.0.0 --port 8080   # serve a built site (with comments)
+npx in-ctrl comments                # open comment threads, as Markdown
+npx in-ctrl comments reply ID TEXT  # answer a thread from a shell
 ```
 
 Settings live in `in-ctrl.config.yaml` at the project root:
@@ -40,6 +42,7 @@ site:
 vocabulary:                      # names every diagram draws the same way
   API: { label: Shop API, icon: "gcp:cloud-run" }
   DB: { label: Orders database, icon: "gcp:cloud-sql" }
+comments: .in-ctrl/comments.json # where the site keeps comments (false to turn off)
 ```
 
 The site takes your Markdown as it is: the first `# Heading` is the page title, `README.md` is a folder's page, links between docs become site links, and links to code go to GitHub.
@@ -174,3 +177,11 @@ steps:
 - Frames: `alt` and `par` take a list of `{ when, steps }`; `opt` and `loop` take a label and `steps`. `phase: Name` with `steps` is a tinted band across the diagram, for the phases of a long flow.
 - `note` with `over: one id` or `over: [first, last]`.
 - Keep a sequence to about 12 messages and one level of frames inside frames.
+
+### Comments
+
+Readers comment on any paragraph, list item, table row, heading or diagram box: point at it (or tap it on a phone) and press 💬. Threads show under their block, with reply, edit, resolve and delete, and a 💬 button lists every thread on the site.
+
+Comments live in one JSON file in the project (`comments`, default `.in-ctrl/comments.json`; a folder in-ctrl makes for it gets a `.gitignore`). `site dev` and `site serve` both answer the comments API (`{base}_in-ctrl/comments`), so a built site served with `site serve --root PROJECT` takes comments from every device that can reach it; `--comments FILE` picks another file, `--no-comments` turns it off. Built pages ask for the API and show no comment UI where there is none, so the same build works on any static host.
+
+Agents read the open threads with `in-ctrl comments` (`--all` adds resolved ones) and answer with `in-ctrl comments reply ID TEXT [--as NAME]`; open pages show the reply without a reload.

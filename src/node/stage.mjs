@@ -29,22 +29,8 @@ export function stage(config, out, assets, { incremental = false } = {}) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, bytes);
   };
-  const pages = new Map(); // absolute source path → slug ("" is the home page)
-  const files = [];
-  (function walk(dir) {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (e.name === "node_modules" || e.name.startsWith(".")) continue;
-      const full = path.join(dir, e.name);
-      if (e.isDirectory()) walk(full);
-      else files.push(full);
-    }
-  })(config.docs);
-  for (const f of files.filter((f) => f.endsWith(".md"))) {
-    const slug = slugOf(config, f);
-    // docs/README.md can't take the home page's place.
-    pages.set(f, slug === "index" && config.home ? "overview" : slug);
-  }
-  if (config.home) pages.set(config.home, "");
+  const files = docFiles(config);
+  const pages = pagesOf(config, files);
 
   for (const [source, slug] of pages) {
     const text = fs.readFileSync(source, "utf8");
@@ -70,6 +56,32 @@ export function stage(config, out, assets, { incremental = false } = {}) {
   return [...new Set([...pages.values()].filter((slug) => slug.includes("/")).map((slug) => slug.split("/")[0]))].sort();
 }
 
+/** Every file under the docs folder, except hidden ones and node_modules. */
+function docFiles(config) {
+  const files = [];
+  (function walk(dir) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) walk(full);
+      else files.push(full);
+    }
+  })(config.docs);
+  return files;
+}
+
+/** The site's pages: absolute source path → slug ("" is the home page). */
+export function pagesOf(config, files = docFiles(config)) {
+  const pages = new Map();
+  for (const f of files.filter((f) => f.endsWith(".md"))) {
+    const slug = slugOf(config, f);
+    // docs/README.md can't take the home page's place.
+    pages.set(f, slug === "index" && config.home ? "overview" : slug);
+  }
+  if (config.home) pages.set(config.home, "");
+  return pages;
+}
+
 function slugOf(config, file) {
   const rel = path.relative(config.docs, file).replace(/\\/g, "/").replace(/\.md$/, "");
   if (rel === "INDEX" || rel === "index") return "contents";
@@ -78,7 +90,7 @@ function slugOf(config, file) {
   return parts.map((p) => p.toLowerCase().replace(/[^a-z0-9._-]+/g, "-")).join("/");
 }
 
-function routeOf(config, slug) {
+export function routeOf(config, slug) {
   const base = config.base.endsWith("/") ? config.base : `${config.base}/`;
   const path = slug === "index" ? "" : slug.replace(/\/index$/, "");
   return path ? `${base}${path}/` : base;
