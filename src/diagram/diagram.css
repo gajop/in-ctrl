@@ -1,0 +1,542 @@
+/* Docs diagrams, light and dark. Colours follow GitHub's palette. */
+
+.cd {
+  --cd-bg: #ffffff;
+  --cd-fg: #1f2328;
+  --cd-muted: #59636e;
+  --cd-node-bg: #ffffff;
+  --cd-node-border: #d1d9e0;
+  --cd-node-shadow: 0 1px 2px rgba(31, 35, 40, 0.08);
+  --cd-boundary-bg: rgba(9, 105, 218, 0.035);
+  --cd-boundary-border: #8c959f;
+  --cd-process-bg: rgba(140, 149, 159, 0.08);
+  --cd-process-border: #afb8c1;
+  --cd-edge: #6e7781;
+  --cd-accent: #0969da;
+  --cd-tag-bg: #eff2f5;
+  --cd-label-bg: #ffffff;
+  --cd-mono: #59636e;
+  position: relative;
+  width: 100%;
+  background: var(--cd-bg);
+  color: var(--cd-fg);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  border-radius: 8px;
+}
+
+.cd-dark {
+  --cd-bg: #0d1117;
+  --cd-fg: #e6edf3;
+  --cd-muted: #9198a1;
+  --cd-node-bg: #151b23;
+  --cd-node-border: #3d444d;
+  --cd-node-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --cd-boundary-bg: rgba(56, 139, 253, 0.05);
+  --cd-boundary-border: #656c76;
+  --cd-process-bg: rgba(110, 118, 129, 0.12);
+  --cd-process-border: #4d555e;
+  --cd-edge: #8b949e;
+  --cd-accent: #4493f8;
+  --cd-tag-bg: #262c36;
+  --cd-label-bg: #0d1117;
+  --cd-mono: #b7bdc8;
+}
+
+.cd .react-flow {
+  background: transparent;
+  --xy-background-color: transparent;
+}
+
+.cd-markers {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.cd-arrowhead {
+  fill: var(--cd-edge);
+}
+
+.cd-arrowhead-lit {
+  fill: var(--cd-accent);
+}
+
+/* A box: product icon, name, what runs there. */
+.cd-node {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 10px 14px;
+  background: var(--cd-node-bg);
+  border: 1px solid var(--cd-node-border);
+  border-radius: 10px;
+  box-shadow: var(--cd-node-shadow);
+  transition: opacity 0.15s;
+}
+
+.cd-text {
+  min-width: 0;
+}
+
+.cd-label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.cd-detail {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--cd-muted);
+}
+
+.cd-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.cd-tag {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--cd-tag-bg);
+  color: var(--cd-muted);
+}
+
+.cd-icon {
+  flex: none;
+  display: inline-flex;
+}
+
+.cd-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* One-colour icons take a colour: Cloudflare orange, generic shapes in the text colour. */
+.cd-icon-cloudflare {
+  color: #f38020;
+}
+
+.cd-icon-lucide {
+  color: var(--cd-mono);
+}
+
+/* Boxes around other boxes. */
+.cd-group {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+}
+
+.cd-group-boundary {
+  background: var(--cd-boundary-bg);
+  border: 1.5px dashed var(--cd-boundary-border);
+}
+
+.cd-group-process {
+  background: var(--cd-process-bg);
+  border: 1px solid var(--cd-process-border);
+}
+
+.cd-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+}
+
+.cd-group-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cd-group-detail {
+  font-size: 12px;
+  color: var(--cd-muted);
+}
+
+.cd-handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cd-edge {
+  stroke: var(--cd-edge) !important;
+  stroke-width: 1.5px !important;
+  transition: opacity 0.15s;
+}
+
+.cd-dashed {
+  stroke-dasharray: 6 4;
+}
+
+.cd-lit {
+  stroke: var(--cd-accent) !important;
+  stroke-width: 2px !important;
+}
+
+.cd-edge-label {
+  position: absolute;
+  text-align: center;
+  font-size: 12px;
+  line-height: 16px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--cd-label-bg);
+  color: var(--cd-muted);
+  white-space: pre;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.cd-edge-label.cd-lit {
+  color: var(--cd-accent);
+}
+
+.cd-dim {
+  opacity: 0.3;
+}
+
+.cd-fixed .react-flow__renderer {
+  overflow: visible;
+}
+
+.cd .react-flow__controls {
+  opacity: 0;
+  transition: opacity 0.15s;
+  box-shadow: none;
+  border: 1px solid var(--cd-node-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.cd-label {
+  white-space: nowrap;
+}
+
+/* Graph shapes beyond the box. */
+.cd-linked {
+  cursor: pointer;
+}
+
+.cd-tone-good {
+  --cd-tone: #1a7f37;
+}
+
+.cd-tone-bad {
+  --cd-tone: #cf222e;
+}
+
+.cd-tone-quiet {
+  --cd-tone: #8c959f;
+}
+
+.cd-tone-accent {
+  --cd-tone: #0969da;
+}
+
+.cd-dark .cd-tone-good {
+  --cd-tone: #3fb950;
+}
+
+.cd-dark .cd-tone-bad {
+  --cd-tone: #f85149;
+}
+
+.cd-dark .cd-tone-accent {
+  --cd-tone: #4493f8;
+}
+
+.cd-node[class*="cd-tone-"] {
+  border-color: var(--cd-tone);
+  background: color-mix(in srgb, var(--cd-tone) 10%, var(--cd-node-bg));
+}
+
+.cd-state {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1.5px solid var(--cd-tone, var(--cd-node-border));
+  background: color-mix(in srgb, var(--cd-tone, transparent) 12%, var(--cd-node-bg));
+  box-shadow: var(--cd-node-shadow);
+  transition: opacity 0.15s;
+}
+
+.cd-state .cd-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--cd-tone, var(--cd-fg));
+}
+
+.cd-tone-plain {
+  --cd-tone: var(--cd-node-border);
+}
+
+.cd-tone-plain .cd-label {
+  color: var(--cd-fg);
+}
+
+.cd-terminal {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--cd-fg);
+}
+
+.cd-terminal-end {
+  background: transparent;
+  border: 2px solid var(--cd-fg);
+  box-shadow: inset 0 0 0 3px var(--cd-bg), inset 0 0 0 10px var(--cd-fg);
+}
+
+.cd-decision {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.15s;
+}
+
+.cd-diamond {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.cd-diamond polygon {
+  fill: var(--cd-node-bg);
+  stroke: var(--cd-accent);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+
+.cd-decision-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 18%;
+}
+
+.cd-decision-label {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.cd-entity {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  background: var(--cd-node-bg);
+  border: 1px solid var(--cd-node-border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--cd-node-shadow);
+  transition: opacity 0.15s;
+}
+
+.cd-entity-head {
+  height: 34px;
+  line-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--cd-tag-bg);
+  border-bottom: 1px solid var(--cd-node-border);
+}
+
+.cd-entity-field {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  height: 20px;
+  line-height: 20px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.cd-field-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.cd-field-rest {
+  color: var(--cd-muted);
+}
+
+.cd-note {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 10px 14px;
+  border: 1px dashed var(--cd-boundary-border);
+  border-radius: 8px;
+  background: var(--cd-tag-bg);
+}
+
+.cd-note-label {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Sequence diagrams. */
+.cd-seq svg {
+  overflow: visible;
+}
+
+.cd-seq text {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.cd-seq-card-box {
+  fill: var(--cd-node-bg);
+  stroke: var(--cd-node-border);
+  filter: drop-shadow(0 1px 1px rgba(31, 35, 40, 0.06));
+}
+
+.cd-seq-name {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--cd-fg);
+}
+
+.cd-seq .cd-icon-lucide {
+  color: var(--cd-mono);
+}
+
+.cd-seq-lifeline {
+  stroke: var(--cd-node-border);
+  stroke-width: 1.5px;
+  stroke-dasharray: 4 4;
+}
+
+.cd-seq-lifeline.cd-lit {
+  stroke: var(--cd-accent);
+}
+
+.cd-seq-line {
+  stroke: var(--cd-edge);
+  stroke-width: 1.5px;
+}
+
+.cd-seq-msg.cd-lit .cd-seq-line {
+  stroke: var(--cd-accent);
+}
+
+.cd-seq-head {
+  fill: var(--cd-edge);
+}
+
+.cd-seq-head-open {
+  fill: none;
+  stroke: var(--cd-edge);
+  stroke-width: 1.5px;
+}
+
+.cd-seq-label {
+  font-size: 12px;
+  fill: var(--cd-fg);
+}
+
+.cd-seq-num circle {
+  fill: var(--cd-accent);
+}
+
+.cd-seq-num text {
+  font-size: 9.5px;
+  font-weight: 700;
+  fill: #ffffff;
+}
+
+.cd-seq-note-box {
+  fill: var(--cd-tag-bg);
+  stroke: var(--cd-boundary-border);
+  stroke-dasharray: 3 3;
+}
+
+.cd-seq-note-text {
+  font-size: 12px;
+  fill: var(--cd-fg);
+}
+
+.cd-seq-frame-box {
+  fill: none;
+  stroke: var(--cd-boundary-border);
+}
+
+.cd-seq-frame-tab {
+  fill: var(--cd-tag-bg);
+  stroke: var(--cd-boundary-border);
+}
+
+.cd-seq-frame-tab-line {
+  stroke: none;
+}
+
+.cd-seq-frame-keyword {
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--cd-fg);
+}
+
+.cd-seq-frame-when {
+  font-size: 12px;
+  font-style: italic;
+  fill: var(--cd-muted);
+}
+
+.cd-seq-divider {
+  stroke: var(--cd-boundary-border);
+  stroke-dasharray: 5 4;
+}
+
+.cd-seq-phase-box {
+  fill: var(--cd-boundary-bg);
+  stroke: none;
+}
+
+.cd-seq-phase-label {
+  font-size: 12px;
+  font-weight: 700;
+  fill: var(--cd-accent);
+}
+
+.cd-seq .cd-dim {
+  opacity: 0.3;
+}
+
+.cd:hover .react-flow__controls {
+  opacity: 1;
+}
+
+/* Edge labels sit over their lines (edges are at z-index 5) but under the boxes. */
+.cd .react-flow__edgelabel-renderer {
+  z-index: 8 !important;
+}
+
+.cd-note-label,
+.cd-entity-field {
+  white-space: nowrap;
+}

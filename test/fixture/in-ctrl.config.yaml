@@ -1,0 +1,10 @@
+title: Example shop
+description: How a small web shop runs on Google Cloud, drawn with in-ctrl.
+docs: docs
+home: README.md
+site:
+  base: /
+vocabulary:
+  Shop: { label: Shop API, icon: "gcp:cloud-run" }
+  DB: { label: Orders database, icon: "gcp:cloud-sql" }
+  Customer: { label: Customer, icon: "lucide:user" }

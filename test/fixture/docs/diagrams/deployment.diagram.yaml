@@ -1,0 +1,12 @@
+title: The shop on Google Cloud
+direction: RIGHT
+nodes:
+  - { id: people, is: Customer, label: Customers, detail: browser }
+  - { id: gcp, label: Google Cloud project, icon: "logos:google-cloud", kind: boundary }
+  - { id: iap, in: gcp, label: Identity-Aware Proxy, icon: "gcp:identity-aware-proxy" }
+  - { id: api, in: gcp, is: Shop, detail: "Cloud Run service", tags: [scales to zero] }
+  - { id: db, in: gcp, is: DB, detail: Postgres }
+edges:
+  - { from: people, to: iap, label: HTTPS, main: true }
+  - { from: iap, to: api, label: allowed requests }
+  - { from: api, to: db, label: "orders, stock" }

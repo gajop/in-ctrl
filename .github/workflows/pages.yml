@@ -1,0 +1,51 @@
+# Reusable: build a project's docs site with in-ctrl and publish it on GitHub
+# Pages. Call it from the project's own workflow (see the README). It uses only
+# GitHub's token, with the permissions the caller grants: contents: read,
+# pages: write, id-token: write.
+name: in-ctrl Pages
+
+on:
+  workflow_call:
+    inputs:
+      in-ctrl-version:
+        description: The in-ctrl version to build with
+        type: string
+        default: "0.1.0"
+      root:
+        description: The project folder (where in-ctrl.config.yaml is)
+        type: string
+        default: "."
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the site
+        run: npx --yes in-ctrl@${{ inputs.in-ctrl-version }} site build "$RUNNER_TEMP/site" --root "${{ inputs.root }}"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

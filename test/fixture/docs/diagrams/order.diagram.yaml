@@ -1,0 +1,17 @@
+type: sequence
+title: Placing an order
+participants:
+  - { id: c, is: Customer }
+  - { id: api, is: Shop }
+  - { id: db, is: DB }
+steps:
+  - { from: c, to: api, label: POST /orders }
+  - { from: api, to: db, label: is it in stock? }
+  - alt:
+      - when: in stock
+        steps:
+          - { from: api, to: db, label: store the order }
+          - { from: api, to: c, label: 201 order placed, kind: return }
+      - when: sold out
+        steps:
+          - { from: api, to: c, label: 409 sold out, kind: return }

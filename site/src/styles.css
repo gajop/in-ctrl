@@ -1,0 +1,19 @@
+/* Live diagrams in the docs. */
+.in-ctrl-figure {
+  margin: 1.5rem 0;
+}
+
+.in-ctrl-figure figcaption {
+  margin-top: 0.4rem;
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+  text-align: center;
+}
+
+.in-ctrl-diagram {
+  min-height: 120px;
+}
+
+.in-ctrl-diagram .cd {
+  border: 1px solid var(--sl-color-hairline);
+}

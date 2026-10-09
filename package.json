@@ -1,0 +1,69 @@
+{
+  "name": "in-ctrl",
+  "version": "0.1.0",
+  "description": "Docs you stay in control of: architecture, deployment and sequence diagrams from YAML (React Flow + ELK, real product icons), a docs site from your Markdown, and checks that keep them in sync.",
+  "license": "MIT OR Apache-2.0",
+  "author": "Gajo Petrovic",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gajop/in-ctrl.git"
+  },
+  "homepage": "https://github.com/gajop/in-ctrl#readme",
+  "keywords": [
+    "docs",
+    "diagrams",
+    "architecture",
+    "react-flow",
+    "elk",
+    "starlight",
+    "living-docs"
+  ],
+  "type": "module",
+  "bin": {
+    "in-ctrl": "bin/in-ctrl.mjs"
+  },
+  "exports": {
+    "./diagram": "./src/diagram/index.ts",
+    "./diagram.css": "./src/diagram/diagram.css",
+    "./node": "./src/node/index.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "render",
+    "site/src",
+    "icons",
+    "README.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@astrojs/react": "^7.0.0",
+    "@astrojs/starlight": "^0.42.0",
+    "@iconify-json/devicon": "^1.2.67",
+    "@iconify-json/logos": "^1.2.0",
+    "@iconify-json/lucide": "^1.2.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "@xyflow/react": "^12.11.6",
+    "astro": "^7.3.0",
+    "elkjs": "^0.12.0",
+    "playwright": "^1.63.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "vite": "^7.3.6",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@11.17.0"
+}
