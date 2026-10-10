@@ -1,22 +1,28 @@
-// Comments on the docs site's pages, kept in one JSON file in the project
-// (config.comments, default .in-ctrl/comments.json, out of git), so every
-// device that opens the site sees the same threads and an agent can read
-// them and reply from a shell (`in-ctrl comments`). Both `site dev` and
-// `site serve` (a built site) answer the API.
+// Comments on the docs site's pages and on the review (`in-ctrl review`):
+// one JSON file in the project (config.comments, default
+// .in-ctrl/comments.json, out of git), so every device sees the same threads
+// and an agent can read them and reply from a shell (`in-ctrl comments`).
+// `site dev`, `site serve` and the review's servers answer the API.
 //
 // The file holds collections of items by id; a change is a list of ops
 // `{coll, id, value}` (value null deletes), so two devices editing different
 // items never overwrite each other.
 //
-//   comments: id → { id, page, file, anchor, text, created, edited?, author?, thread }
+//   comments: id → { id, page?, file?, anchor?, text, created, edited?, author?, thread,
+//                    branch?, line?, startLine?, side?, code? }
+//     on a page: `page` and the `anchor` block on it (`file`: the page's Markdown);
+//     on code under review: `branch`, its `file`, and `line` (or none: the whole file)
 //   resolved: thread key → true
+//   reviewed: "branch|file|patch hash" → true (a file of a branch, reviewed)
+//   reviews: branch → { verdict: "approve" | "request-changes" | "comment" | null, summary, updated? }
+//   marks: "page#section" → "good" | "needs-work"
 
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { pagesOf, routeOf } from "./stage.mjs";
 
-export const COLLECTIONS = ["comments", "resolved"];
+export const COLLECTIONS = ["comments", "resolved", "reviewed", "reviews", "marks"];
 /** The site route the API lives under, after the site's base. */
 export const API = "_in-ctrl/comments";
 
@@ -39,15 +45,20 @@ export function applyOps(file, ops, { sourceOf = () => undefined } = {}) {
     if (!COLLECTIONS.includes(coll) || typeof id !== "string" || !id) throw new Error(`bad op: ${JSON.stringify({ coll, id })}`);
     if (value === null || value === undefined) delete state[coll][id];
     else if (coll === "comments") state[coll][id] = withSource(value, id, sourceOf);
+    else if (coll === "reviews") state[coll][id] = review(value, id);
+    else if (coll === "marks") state[coll][id] = mark(value, id);
     else state[coll][id] = true;
   }
   write(file, state);
   return state;
 }
 
-/** Comments that answer each other share a thread key. */
+/** Comments that answer each other share a thread key (comments saved before threads had ids are grouped by place). */
 export function threadKey(c) {
-  return `t|${c.thread ?? c.id}`;
+  if (c.thread) return `t|${c.thread}`;
+  if (c.anchor) return `page|${c.page}|${c.anchor.section}|${c.anchor.block}`;
+  if (c.branch) return `code|${c.branch}|${c.file ?? ""}|${c.side ?? ""}|${c.line ?? ""}`;
+  return `t|${c.id}`;
 }
 
 /** Every comment, oldest first. */
@@ -62,11 +73,17 @@ export function reply(file, id, text, author = "agent") {
   if (hits.length !== 1) throw new Error(`${hits.length} comments match ${id}`);
   if (!text.trim()) throw new Error("a reply needs a text");
   const target = hits[0];
+  const { page, file: source, anchor, branch, line, startLine, side, code } = target;
   const value = {
     id: crypto.randomUUID(),
-    page: target.page,
-    file: target.file,
-    anchor: target.anchor,
+    page,
+    file: source,
+    anchor,
+    branch,
+    line,
+    startLine,
+    side,
+    code,
     thread: target.thread ?? target.id,
     text: text.trim(),
     author,
@@ -76,7 +93,7 @@ export function reply(file, id, text, author = "agent") {
   return value;
 }
 
-/** The threads as Markdown, by page: open ones, or all with `includeResolved`. */
+/** The threads as Markdown, by page or branch (open ones, or all with `includeResolved`), with each branch's verdict and the section marks. */
 export function report(state, { includeResolved = false } = {}) {
   const threads = new Map();
   for (const c of commentList(state)) {
@@ -84,20 +101,32 @@ export function report(state, { includeResolved = false } = {}) {
     if (!includeResolved && state.resolved[key]) continue;
     threads.set(key, [...(threads.get(key) ?? []), c]);
   }
-  const byPage = new Map();
+  const targets = new Map();
+  const add = (target, item) => targets.set(target, [...(targets.get(target) ?? []), item]);
+  for (const [branch, r] of Object.entries(state.reviews)) {
+    add(branch, `**Verdict: ${r.verdict ?? "none"}**${r.summary?.trim() ? `\n\n${r.summary.trim()}` : ""}`);
+  }
+  for (const [key, value] of Object.entries(state.marks)) {
+    const [page, section] = key.split("#");
+    add(page, `- Section \`${section}\`: ${value === "good" ? "looks good" : "**needs work**"}`);
+  }
   for (const [key, list] of threads) {
     const first = list[0];
-    const target = first.file ? `${first.file} (${first.page})` : first.page;
-    const a = first.anchor ?? {};
-    const place = `"${a.sectionTitle ?? ""}"${a.block === "heading" ? " (section)" : ""}${a.about ? `, about ${a.about}` : ""}`;
-    const quote = a.block !== "heading" && a.quote ? `\n  > ${a.quote}` : "";
+    const a = first.anchor;
+    const where = a
+      ? `"${a.sectionTitle ?? ""}"${a.block === "heading" ? " (section)" : ""}${a.about ? `, about ${a.about}` : ""}${a.block !== "heading" && a.quote ? `\n  > ${a.quote}` : ""}`
+      : first.file
+        ? `\`${first.file}${first.line ? `:${first.startLine && first.startLine !== first.line ? `${first.startLine}-` : ""}${first.line}` : ""}\`${first.side === "old" ? " (removed line)" : ""}${first.code ? `\n  > \`${first.code.trim()}\`` : ""}`
+        : "general";
     const body = list
       .map((c) => `  - ${c.author ?? "reader"} [${c.id.slice(0, 8)}]: ${c.text.trim().replace(/\n/g, "\n    ")}`)
       .join("\n");
-    byPage.set(target, [...(byPage.get(target) ?? []), `- ${place}${state.resolved[key] ? " (resolved)" : ""}${quote}\n${body}`]);
+    // A docs page: its Markdown file and route; a review page or code: its branch.
+    const target = first.branch ?? (first.file ? `${first.file} (${first.page})` : first.page ?? "general");
+    add(target, `- ${where}${state.resolved[key] ? " (resolved)" : ""}\n${body}`);
   }
-  if (!byPage.size) return includeResolved ? "No comments." : "No open comments.";
-  return [...byPage].map(([target, items]) => `## ${target}\n\n${items.join("\n")}`).join("\n\n");
+  if (!targets.size) return includeResolved ? "No comments." : "No open comments.";
+  return [...targets].map(([target, items]) => `## ${target}\n\n${items.join("\n")}`).join("\n\n");
 }
 
 /** Maps a page route to its Markdown source, relative to the project root. */
@@ -117,15 +146,15 @@ const MAX_BODY = 1 << 20;
 /**
  * The comments API for a server: GET and POST {base}_in-ctrl/comments, and
  * {base}_in-ctrl/comments/events, a stream that says when the file changed
- * (a reply from a shell, another device). `handle(req, res)` answers a request
+ * (a reply from a shell, another device). `sourceOf` maps a page to its
+ * Markdown source (default: the docs site's). `handle(req, res)` answers a request
  * and returns true if it was the API's; `changed()` tells the open streams;
  * `close()` ends them.
  */
-export function commentsApi(config) {
+export function commentsApi(config, { sourceOf = sourceResolver(config) } = {}) {
   const file = config.comments;
   const base = config.base.endsWith("/") ? config.base : `${config.base}/`;
   const route = `${base}${API}`;
-  const sourceOf = sourceResolver(config);
   const listeners = new Set();
   const changed = () => {
     for (const res of listeners) res.write("data: changed\n\n");
@@ -217,14 +246,31 @@ export function commentsPlugin(config) {
 
 // Helpers
 
-/** A comment as stored: only known fields, with its Markdown source filled in. */
+/** A comment as stored: only known fields, with a docs page's Markdown source filled in. */
 function withSource(value, id, sourceOf) {
-  if (typeof value !== "object" || typeof value.text !== "string" || typeof value.page !== "string") {
-    throw new Error(`bad comment ${id}: needs page and text`);
+  if (typeof value !== "object" || value === null || typeof value.text !== "string" || (typeof value.page !== "string" && typeof value.branch !== "string")) {
+    throw new Error(`bad comment ${id}: needs a page or a branch, and text`);
   }
-  const { page, anchor, text, created, edited, author, thread } = value;
-  const file = value.file ?? sourceOf(page);
-  return JSON.parse(JSON.stringify({ id, page, file, anchor, text, created: created ?? new Date().toISOString(), edited, author, thread: thread ?? id }));
+  const { page, anchor, text, created, edited, author, branch, line, startLine, side, code } = value;
+  const file = value.file ?? (branch ? undefined : sourceOf(page));
+  return JSON.parse(
+    JSON.stringify({ id, page, file, anchor, branch, line, startLine, side, code, text, created: created ?? new Date().toISOString(), edited, author, thread: value.thread ?? id }),
+  );
+}
+
+const VERDICTS = ["approve", "request-changes", "comment", null];
+
+/** A branch's review as stored: its verdict and summary. */
+function review(value, id) {
+  if (typeof value !== "object" || value === null || !VERDICTS.includes(value.verdict ?? null)) throw new Error(`bad review of ${id}`);
+  const { verdict = null, summary = "", updated } = value;
+  return JSON.parse(JSON.stringify({ verdict, summary: String(summary), updated }));
+}
+
+/** A section's mark. */
+function mark(value, id) {
+  if (value !== "good" && value !== "needs-work") throw new Error(`bad mark on ${id}: good or needs-work`);
+  return value;
 }
 
 function write(file, state) {

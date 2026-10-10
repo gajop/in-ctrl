@@ -218,7 +218,7 @@ test("a built site served by site serve takes comments, on a phone too", { timeo
     assert.match(served.url, /\/shop\/$/);
     const empty = await fetch(api);
     assert.equal(empty.status, 200);
-    assert.deepEqual(await empty.json(), { comments: {}, resolved: {} });
+    assert.deepEqual(await empty.json(), { comments: {}, resolved: {}, reviewed: {}, reviews: {}, marks: {} });
 
     // 3. A phone: tap a paragraph, tap its 💬, write, save.
     browser = await chromium.launch();

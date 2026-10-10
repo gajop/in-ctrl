@@ -30,7 +30,7 @@ test("comments store handles read, ops, reply, and markdown report", () => {
 
     // 1. Initial read should be empty
     const initial = readComments(file);
-    assert.deepEqual(initial, { comments: {}, resolved: {} });
+    assert.deepEqual(initial, { comments: {}, resolved: {}, reviewed: {}, reviews: {}, marks: {} });
 
     // 2. Add a comment
     const comment1 = {
@@ -168,5 +168,36 @@ test("CLI commands for listing comments and replying", async () => {
     assert.ok(disabledList.stderr().includes("comments are turned off"));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the store keeps the review too: code comments, reviewed files, verdicts, section marks", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "in-ctrl-review-store-"));
+  try {
+    const file = path.join(dir, "comments.json");
+    const code = { branch: "stack/01-discounts", file: "src/cart.js", line: 3, side: "new", code: "  return sum - discount;", text: "Below zero?", created: "2026-10-01T10:00:00.000Z" };
+    applyOps(file, [
+      { coll: "comments", id: "k1", value: code },
+      { coll: "reviewed", id: "stack/01-discounts|src/cart.js|abcd1234", value: true },
+      { coll: "reviews", id: "stack/01-discounts", value: { verdict: "request-changes", summary: "One question." } },
+      { coll: "marks", id: "/pages/review/01-discounts.html#code", value: "needs-work" },
+    ], { sourceOf: () => "docs/never.md" });
+    const state = readComments(file);
+    // A code comment keeps its place in the diff; a docs page's source isn't looked up for it.
+    assert.deepEqual({ ...state.comments.k1 }, { id: "k1", ...code, thread: "k1" });
+    assert.equal(state.reviews["stack/01-discounts"].verdict, "request-changes");
+
+    reply(file, "k1", "It stops at zero now.", "claude");
+    const md = report(readComments(file));
+    assert.match(md, /## stack\/01-discounts\n\n\*\*Verdict: request-changes\*\*\n\nOne question\./);
+    assert.match(md, /- `src\/cart\.js:3`\n  > `return sum - discount;`\n  - reader \[k1\]: Below zero\?\n  - claude \[[0-9a-f]{8}\]: It stops at zero now\./);
+    assert.match(md, /## \/pages\/review\/01-discounts\.html\n\n- Section `code`: \*\*needs work\*\*/);
+
+    // Values the review doesn't know are refused.
+    assert.throws(() => applyOps(file, [{ coll: "reviews", id: "stack/02-tax", value: { verdict: "merge" } }]), /bad review/);
+    assert.throws(() => applyOps(file, [{ coll: "marks", id: "/x#y", value: "meh" }]), /bad mark/);
+    assert.throws(() => applyOps(file, [{ coll: "comments", id: "k2", value: { text: "nowhere" } }]), /needs a page or a branch/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });
