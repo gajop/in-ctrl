@@ -79,6 +79,18 @@ pinned: true               # first in its folder, after the folder's own page
 
 Numbers are the author's to keep: a new page takes the next one, and old ones never change, so links and references to "report 27" stay true.
 
+### Page metadata
+
+Declare provenance in front matter; the site renders it as a small line beneath the title:
+
+```yaml
+metadata:
+  Updated at: "2026-10-07T12:00:00+09:00"
+  Git SHA at edit: "fe1630d + working changes"
+```
+
+Labels and values are author-owned text. Reports can use `Runtime` instead of a documentation revision. The site also recognizes an existing leading `> Updated at: …` line, preserving its text and comment position without editing the source. Pages without declared metadata get no invented date or revision; build time never replaces recorded provenance.
+
 ### Reading width
 
 The header has buttons that hide the sidebar and the table of contents (`[` and `]` from the keyboard); the page keeps the reader's choice. The content column starts next to the sidebar and widens to the whole page when both are hidden.

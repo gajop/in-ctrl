@@ -1,3 +1,18 @@
+/* Author-declared page provenance, shared by all docs and themes. */
+.sl-markdown-content > .in-ctrl-page-metadata {
+  margin-block: 0 1rem;
+  color: var(--sl-color-gray-3);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.in-ctrl-page-metadata code {
+  font-size: inherit;
+  background: transparent;
+  padding: 0;
+}
+
 /* Live diagrams in the docs. */
 .in-ctrl-figure {
   margin: 1.5rem 0;

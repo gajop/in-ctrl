@@ -45,6 +45,9 @@ export function splitFrontMatter(text, name = "page") {
     throw new Error(`in-ctrl: ${name}: sidebar_label must be text`);
   }
   if (meta.pinned !== undefined && typeof meta.pinned !== "boolean") throw new Error(`in-ctrl: ${name}: pinned must be true or false`);
+  if (meta.metadata !== undefined && (!meta.metadata || typeof meta.metadata !== "object" || Array.isArray(meta.metadata) || Object.values(meta.metadata).some((v) => typeof v !== "string"))) {
+    throw new Error(`in-ctrl: ${name}: metadata must be a map of text labels to text values`);
+  }
   return { meta, body: text.slice(m[0].length) };
 }
 
@@ -149,6 +152,18 @@ function transform(config, source, text, pages) {
   }
   const dir = path.dirname(source);
   let body = lines.join("\n");
+  // Presentation only: preserve author-declared provenance, never substitute
+  // build time or the checkout revision for a historical report's runtime.
+  // Keeping one top-level block also preserves existing comment positions.
+  const legacy = body.match(/^\s*> (Updated at: [^\n]+)\r?\n(?=\s*\n|$)/);
+  const metadata = meta.metadata
+    ? Object.entries(meta.metadata).map(([label, value]) => `${label}: ${value}`).join(" · ")
+    : legacy?.[1];
+  if (metadata) {
+    if (legacy) body = body.slice(legacy[0].length);
+    const html = escapeHtml(metadata).replace(/`([^`]+)`/g, "<code>$1</code>");
+    body = `<p class="in-ctrl-page-metadata" aria-label="Page metadata">${html}</p>\n\n${body.replace(/^\n+/, "")}`;
+  }
   // Images first: a diagram's PNG becomes a live diagram.
   body = body.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (whole, alt, src) => {
     if (/^[a-z]+:/i.test(src)) return whole;

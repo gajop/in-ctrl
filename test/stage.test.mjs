@@ -103,3 +103,24 @@ test("bad front matter names the page", () => {
   assert.throws(() => project({ "docs/a/b.md": "---\nnumber: two\n---\n# B\n" }), /docs\/a\/b\.md: number must be a whole number/);
   assert.throws(() => project({ "docs/a/b.md": "---\nnumber: [\n---\n# B\n" }), /docs\/a\/b\.md: front matter is not valid YAML/);
 });
+
+test("page provenance becomes compact metadata without changing sources or historical runtime", () => {
+  const original = "# Review\n\n> Updated at: 2026-10-03 · Runtime: `old-sha` + working changes · Diagnostic only\n\nBody.\n";
+  const { root, read } = project({
+    "docs/review.md": original,
+    "docs/new.md": '---\nmetadata:\n  Updated at: "2026-10-07T12:00:00+09:00"\n  Revision: "<old> & reviewed"\n---\n# New\n\nBody.\n',
+    "docs/plain.md": "# Plain\n\n> This is a normal quotation.\n\n> Updated at: quoted later, not page provenance\n",
+  });
+  assert.match(read("review.md"), /<p class="in-ctrl-page-metadata" aria-label="Page metadata">Updated at: 2026-10-03 · Runtime: <code>old-sha<\/code> \+ working changes · Diagnostic only<\/p>\n\nBody\./);
+  assert.equal(fs.readFileSync(path.join(root, "docs/review.md"), "utf8"), original);
+  assert.match(read("new.md"), /Updated at: 2026-10-07T12:00:00\+09:00 · Revision: &lt;old&gt; &amp; reviewed/);
+  assert.doesNotMatch(read("new.md"), /\nmetadata:/);
+  assert.doesNotMatch(read("plain.md"), /in-ctrl-page-metadata/);
+  assert.match(read("plain.md"), /> Updated at: quoted later/);
+});
+
+test("invalid page metadata names the source rather than rendering object values", () => {
+  for (const value of ["false", "[date, revision]", "{Updated: 123}"]) {
+    assert.throws(() => project({ "docs/a.md": `---\nmetadata: ${value}\n---\n# A\n` }), /docs\/a\.md: metadata must be a map of text labels to text values/);
+  }
+});
