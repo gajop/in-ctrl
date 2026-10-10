@@ -1,11 +1,12 @@
 # in-ctrl
 
-Docs you stay in control of.
+Code and docs you stay in control of.
 
 ![A deployment drawn by in-ctrl: customers reach a Cloud Run API through Identity-Aware Proxy; it keeps orders in Cloud SQL](test/fixture/docs/diagrams/deployment.png)
 
 AI can write a lot of code quickly. Staying in control means knowing what the code does: how the parts fit, what flows through them, where it runs. in-ctrl keeps that knowledge in your repository, as plain Markdown and small YAML diagrams that you review and change with the code, and makes it pleasant to read:
 
+- **Review:** a stack of branches, one page each: what the branch is for, its diff (split or unified, file by file or as a walkthrough), the docs and diagrams it changes before and after, comments on any line, files marked reviewed, and a verdict. Approving merges. An agent reads the review and answers from a shell.
 - **Diagrams from YAML:** architecture, deployment, flowcharts, lifecycles, tables (laid out by ELK, drawn with React Flow) and sequence diagrams, with real product icons (Google Cloud, Cloudflare, Docker, …), in light and dark.
 - **Readable everywhere:** each diagram is also rendered to a PNG next to its source, which the Markdown embeds, so the docs read on GitHub and in any editor.
 - **A docs site:** your `docs/` folder as a site with navigation, search and dark mode (Astro Starlight), where diagrams are live: zoom, pan, hover to follow a line, click a box to open its page.
@@ -94,6 +95,75 @@ site:
 ```
 
 `site build` writes a small redirect page at each old path (any static host follows it), never over a page that exists. `site serve` answers old paths with a 302, serves folders' `index.html`, and gives anything missing the site's own 404 page with status 404, using only Node.
+
+## Review a stack of branches
+
+`in-ctrl review` is a site for reviewing a stack of branches (`stack/01-…`, `stack/02-…`, each built on the one before), one page per branch. It lives in a folder of its own, next to the code or in it:
+
+```
+review/
+  in-ctrl.config.yaml      # title, and the review section below
+  index.html               # the front page
+  pages/review/01-discounts.html   # a page per branch (any folders under pages/)
+  maps.yaml                # optional: the parts of the project, for the impact map
+  public/                  # optional: images and files the pages use
+```
+
+```yaml
+title: Shop review
+review:
+  repo: ../shop            # the git repository (default: the one this folder is in)
+  branchPrefix: stack/     # the stack: these branches, in name order
+  baseBranch: main         # approving merges into it
+  stackBase: 1a2b3c4       # what the first branch is diffed against (default: baseBranch)
+  publicRemote: origin     # optional: merging also pushes the base branch there
+```
+
+```bash
+npx in-ctrl review gen               # the branches' diffs and the pages' index, from git (generated/)
+npx in-ctrl review dev               # the review, live, on 127.0.0.1:5192
+npx in-ctrl review publish           # build a release and make it the live one
+npx in-ctrl review serve 127.0.0.1:5190   # serve the live release, the comments and the inbox
+npx in-ctrl review merge [--apply]   # fast-forward the base branch over the approved branches
+npx in-ctrl review inbox wait        # wait for the reader to send the review to the agent
+```
+
+A page is plain HTML. Metas place it and the elements in it draw from the branch:
+
+```html
+<title>01 · Discounts on the cart's total</title>
+<meta name="guide:section" content="review">
+<meta name="guide:parent" content="/pages/review/index.html">
+<meta name="guide:branch" content="stack/01-discounts">
+<meta name="guide:kind" content="feature">        <!-- security, fix, feature, cleanup, deps, docs, … -->
+<meta name="guide:oneliner" content="**Discounts** come off the cart's total.">
+
+<guide-nav></guide-nav>
+<main>
+<review-header branch="stack/01-discounts" risk="low"></review-header>
+<review-summary><script type="application/yaml">
+why: Customers had no way to use a coupon.
+what: "`total(items, discount)` takes the discount off the sum."
+</script></review-summary>
+<h2 id="code">Code</h2>
+<review-code branch="stack/01-discounts"></review-code>
+</main>
+```
+
+- `<review-header>`: the branch, its verdict, files and lines changed, review progress, and the branches before and after it.
+- `<review-code>`: the diff. With `<walk-file file="…">` children it is a walkthrough in that order, with your headings between files; otherwise the files.
+- `<review-summary>`: why, what, impact and risk, next to a map of the parts the branch changes (`maps.yaml`).
+- `<review-notes branch="…">`: notes pinned to diff lines (`file`, `at: text on the line`, `kind`, `text` in YAML).
+- `<branch-flows>`: the docs diagrams (`*.diagram.yaml`) the branch changes, as a diff, before and after. `<doc-previews auto>`: the docs pages it changes, as built pages, before and after.
+- `<review-list>`: every branch in the stack, at a glance. `<repo-markdown file="…">`: a Markdown file from the repository. `<docs-diagram file="…">`: a diagram from the repository.
+
+The sidebar lists every page, grouped by `guide:section` and nested by `guide:parent`, with each branch's lines added and removed and how its review is going.
+
+The review is kept with the comments (`comments`, default `.in-ctrl/comments.json`): comments on lines and on page text, files marked reviewed, verdicts. Every device that opens the review shares it. `in-ctrl comments` prints the open threads and verdicts for an agent, which answers with `in-ctrl comments reply ID TEXT`. Readers press 🤖 to send the review to the agent with a note; the agent picks it up with `in-ctrl review inbox wait`, marks it `start ID`, and `done ID SUMMARY`, and the reader sees each step.
+
+Approve means merge: `in-ctrl review merge --apply` fast-forwards the base branch (in the worktree that has it checked out, if it's clean) to the last branch of the unbroken run of approved branches after it. A later approval waits for the branches before it.
+
+More settings: `pages` (default `pages`), `inbox` (default `.in-ctrl/inbox.json`), `branches` (branches outside the stack, each `{ name, base }`), `stackParents` (a branch's parent, when it isn't the one before), `mergedRefs` (history that counts as merged besides the base branch), `docsRef` (where the repository's docs are read from), `docPreviews` (branch → the ref its docs are compared with), `annotationKinds` (the kinds of notes; default `important` and `detail`), `editorLink` (open a file in your editor, e.g. `vscode://file/{abs}:{line}`), `client` (a module of your own elements), `alias` (import name → path, e.g. one React for your elements and in-ctrl's).
 
 ## Publish the site on GitHub Pages
 

@@ -1,7 +1,7 @@
 {
   "name": "in-ctrl",
   "version": "0.1.0",
-  "description": "Docs you stay in control of: architecture, deployment and sequence diagrams from YAML (React Flow + ELK, real product icons), a docs site from your Markdown, and checks that keep them in sync.",
+  "description": "Docs and reviews you stay in control of: review a stack of branches with diffs, comments and verdicts; architecture, deployment and sequence diagrams from YAML (React Flow + ELK, real product icons); a docs site from your Markdown; and checks that keep them in sync.",
   "license": "MIT OR Apache-2.0",
   "author": "Gajo Petrovic",
   "repository": {
@@ -33,6 +33,7 @@
     "src",
     "render",
     "site/src",
+    "review/src",
     "icons",
     "README.md",
     "LICENSE-MIT",
@@ -55,6 +56,8 @@
     "@xyflow/react": "^12.11.6",
     "astro": "^7.3.0",
     "elkjs": "^0.12.0",
+    "highlight.js": "^11.12.0",
+    "marked": "^18.0.14",
     "playwright": "^1.63.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

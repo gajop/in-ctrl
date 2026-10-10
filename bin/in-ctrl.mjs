@@ -13,6 +13,16 @@
 //   in-ctrl comments reply ID TEXT [--as NAME]
 //                               answer a thread (ID: a comment's id, or its start)
 //
+//   in-ctrl review gen [--check]           the review's data, from git (generated/)
+//   in-ctrl review dev [--host H] [--port P]   the review, live (default 127.0.0.1:5192)
+//   in-ctrl review build [DIR]             the review as static files (default DIR: dist-review)
+//   in-ctrl review publish                 build a new release and make it the live one
+//   in-ctrl review serve HOST:PORT …       the live release, the comments and the inbox
+//   in-ctrl review inbox wait | start ID | done ID TEXT
+//                               requests to the agent: wait for one, take it, finish it
+//   in-ctrl review merge [--apply]         fast-forward the base branch over the approved branches
+//   in-ctrl review pages                   a page for each review.branches entry that has none
+//
 // Options: --root DIR (the project; default: the current directory).
 
 import path from "node:path";
@@ -33,6 +43,8 @@ const dirOption = option("--dir");
 const commentsOption = option("--comments");
 const as = option("--as");
 const all = args.includes("--all");
+const checkOnly = args.includes("--check");
+const apply = args.includes("--apply");
 const positional = args.filter((a) => !a.startsWith("--"));
 const config = loadConfig(root);
 if (commentsOption) config.comments = path.resolve(commentsOption);
@@ -82,8 +94,75 @@ switch (command) {
     else usage();
     break;
   }
+  case "review": {
+    if (!config.review) fail("no review section in in-ctrl.config.yaml");
+    if (!config.comments) fail("the review keeps its comments in the comments file (comments: false in in-ctrl.config.yaml)");
+    await review(sub);
+    break;
+  }
   default:
     usage();
+}
+
+async function review(what) {
+  const rest = positional.slice(2);
+  switch (what) {
+    case "gen": {
+      const { generate } = await import("../src/node/review/data.mjs");
+      process.exit(generate(config, { check: checkOnly }));
+      break;
+    }
+    case "dev": {
+      const { createServer } = await import("vite");
+      const { viteConfig } = await import("../src/node/review/vite.mjs");
+      const vite = await createServer({ ...viteConfig(config), server: { ...viteConfig(config).server, host: host ?? "127.0.0.1", port: port ? Number(port) : 5192 } });
+      await vite.listen();
+      console.log(`review on ${vite.resolvedUrls.local[0]}`);
+      break;
+    }
+    case "build": {
+      const { buildReview } = await import("../src/node/review/publish.mjs");
+      await buildReview(config, rest[0] ?? "dist-review");
+      break;
+    }
+    case "publish": {
+      const { publishReview } = await import("../src/node/review/publish.mjs");
+      console.log(`published ${await publishReview(config)}`);
+      break;
+    }
+    case "serve": {
+      if (!rest.length) fail("usage: in-ctrl review serve HOST:PORT [HOST:PORT …]");
+      const { serveReview } = await import("../src/node/review/serve.mjs");
+      serveReview(config, rest);
+      break;
+    }
+    case "inbox": {
+      const { updateRequest, waitForRequest } = await import("../src/node/review/inbox.mjs");
+      const [action, id, ...words] = rest;
+      const file = config.review.inbox;
+      try {
+        if (action === "wait") console.log(JSON.stringify(await waitForRequest(file), null, 1));
+        else if (action === "start") console.log(updateRequest(file, id, { status: "working", startedAt: new Date().toISOString() }));
+        else if (action === "done") console.log(updateRequest(file, id, { status: "done", doneAt: new Date().toISOString(), reply: words.join(" ") }));
+        else fail("usage: in-ctrl review inbox wait | start ID | done ID TEXT");
+      } catch (err) {
+        fail(err.message);
+      }
+      break;
+    }
+    case "merge": {
+      const { mergeApproved } = await import("../src/node/review/merge.mjs");
+      for (const line of mergeApproved(config, { apply })) console.log(line);
+      break;
+    }
+    case "pages": {
+      const { writeBranchPages } = await import("../src/node/review/pages.mjs");
+      for (const file of writeBranchPages(config)) console.log(`wrote ${file}`);
+      break;
+    }
+    default:
+      usage();
+  }
 }
 
 function fail(message) {
@@ -94,7 +173,9 @@ function fail(message) {
 function usage() {
   console.error(
     "usage: in-ctrl render [--all] | check | dev | site build [DIR] | site dev | site serve [DIR] [--host H] [--port P] [--comments FILE | --no-comments]\n" +
-      "       | comments [--all] | comments reply ID TEXT [--as NAME]   [--root DIR]",
+      "       | comments [--all] | comments reply ID TEXT [--as NAME]\n" +
+      "       | review gen [--check] | review dev [--host H] [--port P] | review build [DIR] | review publish | review serve HOST:PORT …\n" +
+      "       | review inbox wait | review inbox start ID | review inbox done ID TEXT | review merge [--apply] | review pages   [--root DIR]",
   );
   process.exit(2);
 }

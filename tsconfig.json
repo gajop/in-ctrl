@@ -10,12 +10,18 @@
     "skipLibCheck": true,
     "types": [
       "vite/client"
+    ],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
     ]
   },
   "include": [
     "src",
     "render",
-    "site/src"
+    "site/src",
+    "review/src"
   ],
   "exclude": [
     "site/src/content.config.ts"

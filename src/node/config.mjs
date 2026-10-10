@@ -18,7 +18,12 @@
 //   vocabulary:                # names every diagram draws the same way
 //     API: { label: Shop API, icon: "gcp:cloud-run" }
 //   comments: .in-ctrl/comments.json   # where the live site keeps comments; false turns them off
+//   review:                    # `in-ctrl review`: reviewing a stack of branches (see README)
+//     repo: ../..              # the git repository (default: the one this folder is in)
+//     branchPrefix: stack/     # the stack: these branches, in name order
+//     baseBranch: main
 
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
@@ -46,7 +51,41 @@ export function loadConfig(root = process.cwd()) {
     redirects: parseRedirects(raw.site?.redirects),
     vocabulary: raw.vocabulary ?? {},
     comments: raw.comments === false ? null : path.resolve(root, raw.comments ?? ".in-ctrl/comments.json"),
+    review: raw.review ? reviewConfig(root, raw.review, raw.title ?? path.basename(root)) : null,
   };
+}
+
+/** The `review` section, with its paths made absolute and its defaults filled in. */
+function reviewConfig(root, raw, title) {
+  const at = (p) => path.resolve(root, p);
+  return {
+    ...raw,
+    repo: raw.repo ? at(raw.repo) : gitRoot(root),
+    pages: at(raw.pages ?? "pages"),
+    inbox: at(raw.inbox ?? ".in-ctrl/inbox.json"),
+    client: raw.client ? at(raw.client) : null,
+    alias: Object.fromEntries(Object.entries(raw.alias ?? {}).map(([name, target]) => [name, at(target)])),
+    branchPrefix: raw.branchPrefix ?? "stack/",
+    baseBranch: raw.baseBranch ?? "main",
+    name: raw.name ?? title,
+    storageKey: raw.storageKey ?? "in-ctrl-review",
+    mapsPage: raw.mapsPage ?? "/",
+    annotationKinds: raw.annotationKinds ?? NOTE_KINDS,
+  };
+}
+
+/** The kinds of review notes, unless the config names its own. */
+const NOTE_KINDS = [
+  { id: "important", label: "Important", color: "#cf222e", description: "Needs the reviewer's attention: a risk, a behaviour change, or a place where a mistake would be costly. Use sparingly." },
+  { id: "detail", label: "Detail", color: "#0969da", description: "Helps understand the change or the code around it." },
+];
+
+function gitRoot(dir) {
+  try {
+    return execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return dir;
+  }
 }
 
 /** Every diagram source under the docs folder: absolute paths. */
