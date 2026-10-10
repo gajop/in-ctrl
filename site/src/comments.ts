@@ -191,8 +191,10 @@ function installPage() {
   // One 💬 button, moved to the block under the pointer (the last tapped one
   // on touch screens).
   const button = floatingButton("ic-block-button", "Comment on this");
+  let review: DiagramReview | null = null;
   let target: Block | null = null;
   const show = (e: MouseEvent | PointerEvent) => {
+    if (review) { button.hidden = true; return; }
     if ((e.target as Element).closest?.(".ic-block-button")) return;
     let block = page?.blockAt(e.target as Element) ?? null;
     // Moving from a block to its button crosses the margin: keep the block
@@ -222,7 +224,7 @@ function installPage() {
   // shadow roots: the box is found on the event's composed path.
   const boxButton = floatingButton("ic-block-button ic-box-button", "");
   let box: { block: Block; name: string; el: Element } | null = null;
-  document.addEventListener("mousemove", (e) => {
+  const showBox = (e: MouseEvent | PointerEvent) => {
     if ((e.target as Element).closest?.(".ic-box-button")) return;
     const node = e.composedPath().find((n): n is Element => n instanceof Element && n.matches(BOX));
     const figure = node ? (node.getRootNode() as ShadowRoot).host?.closest<HTMLElement>(FIGURE) : null;
@@ -232,20 +234,110 @@ function installPage() {
       if (box && !nearBox(box.el, e)) (boxButton.hidden = true), (box = null);
       return;
     }
-    if (box?.el === node) return;
     box = { block, name, el: node };
     const r = node.getBoundingClientRect();
     boxButton.title = `Comment on ${name}`;
-    boxButton.style.top = `${r.top + window.scrollY - 12}px`;
-    boxButton.style.left = `${r.right + window.scrollX - 14}px`;
+    const size = matchMedia("(pointer: coarse)").matches ? 44 : 26;
+    boxButton.style.position = review ? "fixed" : "absolute";
+    boxButton.style.top = `${review ? Math.max(60, Math.min(innerHeight - size, r.top - 12)) : r.top + window.scrollY - 12}px`;
+    boxButton.style.left = `${review ? Math.max(0, Math.min(innerWidth - size, r.right - 14)) : r.right + window.scrollX - 14}px`;
     boxButton.hidden = false;
+  };
+  document.addEventListener("mousemove", showBox);
+  document.addEventListener("pointerdown", (e) => e.pointerType === "touch" && showBox(e));
+  document.addEventListener("pointermove", (e) => { if (e.pointerType === "touch") boxButton.hidden = true; });
+  boxButton.addEventListener("click", () => {
+    if (!box) return;
+    if (review) review.comment(box.name);
+    else page?.startComment(box.block, box.name);
   });
-  boxButton.addEventListener("click", () => box && page?.startComment(box.block, box.name));
+
+  // Light-DOM controls are slotted into the native dialog: they stay in its
+  // active/focusable tree and retain the site's comment styles and listeners.
+  const viewChanged = (host: HTMLElement, expanded: boolean) => {
+    review?.dispose();
+    review = null;
+    box = null;
+    boxButton.hidden = true;
+    boxButton.removeAttribute("slot");
+    document.body.append(boxButton);
+    const block = page?.blockAt(host.closest(FIGURE));
+    if (expanded && page && block) {
+      review = new DiagramReview(host, page, block);
+      boxButton.slot = "diagram-comment-overlay";
+      host.append(boxButton);
+      button.hidden = true;
+    }
+  };
+  document.addEventListener("in-ctrl:diagram-view", (e) => {
+    const host = e.composedPath().find((n): n is HTMLElement => n instanceof HTMLElement && n.matches(".in-ctrl-diagram"));
+    if (host) viewChanged(host, (e as CustomEvent<{ expanded: boolean }>).detail.expanded);
+  });
+  // Opening a diagram before the comments API answers must also work.
+  for (const host of document.querySelectorAll<HTMLElement>(".in-ctrl-diagram")) {
+    if (host.shadowRoot?.querySelector("dialog[open]")) viewChanged(host, true);
+  }
+}
+
+class DiagramReview {
+  private tools = document.createElement("button");
+  private panel = document.createElement("section");
+  private release: (() => void) | null = null;
+
+  constructor(host: HTMLElement, private owner: PageComments, private block: Block) {
+    this.tools.type = "button";
+    this.tools.className = "ic-diagram-comment-button";
+    this.tools.slot = "diagram-comment-tools";
+    this.tools.textContent = "Comment";
+    this.tools.setAttribute("aria-expanded", "false");
+    this.tools.addEventListener("click", () => this.release ? this.close() : this.comment());
+    this.panel.className = "ic-diagram-review";
+    this.panel.slot = "diagram-comment-overlay";
+    this.panel.setAttribute("role", "region");
+    this.panel.setAttribute("aria-label", "Diagram comments");
+    this.panel.hidden = true;
+    this.panel.innerHTML = '<header class="ic-review-heading"><strong>Diagram comments</strong><button type="button" aria-label="Close diagram comments">Close</button></header>';
+    this.panel.querySelector("button")!.addEventListener("click", () => this.close());
+    this.panel.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      // Keep the draft and dismiss comments before dismissing the diagram.
+      e.preventDefault();
+      e.stopPropagation();
+      this.close();
+    }, true);
+    host.append(this.tools, this.panel);
+  }
+
+  comment(about?: string) {
+    if (!this.release) {
+      this.panel.hidden = false;
+      this.release = this.owner.mountReview(this.block, this.panel);
+      this.tools.setAttribute("aria-expanded", "true");
+    }
+    const existing = this.panel.querySelector<HTMLTextAreaElement>(".ic-composer textarea");
+    if (about === undefined && existing) existing.focus();
+    else this.owner.startComment(this.block, about ?? "");
+  }
+
+  private close() {
+    this.release?.();
+    this.release = null;
+    this.panel.hidden = true;
+    this.tools.setAttribute("aria-expanded", "false");
+    this.tools.focus({ preventScroll: true });
+  }
+
+  dispose() {
+    this.release?.();
+    this.tools.remove();
+    this.panel.remove();
+  }
 }
 
 class PageComments {
   private blocks: Block[];
   private path = currentPage();
+  private review: { block: Block; holder: HTMLElement } | null = null;
 
   constructor(readonly content: HTMLElement) {
     this.blocks = collectBlocks(content);
@@ -357,12 +449,27 @@ class PageComments {
     if (focus) composer.querySelector("textarea")!.focus();
   }
 
+  /** Move, rather than clone, threads/composers; drafts and listeners survive. */
+  mountReview(b: Block, container: HTMLElement): () => void {
+    const holder = this.holderAfter(b);
+    const marker = document.createComment("diagram comment position");
+    holder.before(marker);
+    this.review = { block: b, holder };
+    container.append(holder);
+    return () => {
+      this.review = null;
+      if (marker.isConnected) marker.replaceWith(holder);
+      else holder.remove();
+    };
+  }
+
   private draftKey(b: Block): string {
     return `new|${this.path}|${b.section}|${b.id}`;
   }
 
   /** The box right after a block where its threads go. */
   private holderAfter(b: Block): HTMLElement {
+    if (this.review?.block === b) return this.review.holder;
     // A table row's threads go in a full-width row after it.
     if (b.el.localName === "tr") {
       const next = b.el.nextElementSibling;

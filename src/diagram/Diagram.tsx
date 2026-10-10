@@ -10,6 +10,7 @@
 // Names from the project's vocabulary (`is: API`) get the same label and
 // icon everywhere (vocabulary.ts).
 
+import { DiagramView } from "./DiagramView";
 import { GraphDiagram, type GraphSpec } from "./Graph";
 import { SequenceDiagram, type SequenceSpec } from "./Sequence";
 
@@ -22,9 +23,11 @@ export type Theme = "light" | "dark";
 /** Draw `spec`. `fixed` draws it at 100% with no controls, for rendering to an image. */
 /** `onLink` is called with a node's `link` when it is clicked. */
 export function Diagram({ spec, theme, fixed = false, onLink }: { spec: DiagramSpec; theme: Theme; fixed?: boolean; onLink?: (link: string) => void }) {
-  return spec.type === "sequence" ? (
-    <SequenceDiagram spec={spec} theme={theme} fixed={fixed} />
+  const draw = (fullScreen: boolean) => spec.type === "sequence" ? (
+    <SequenceDiagram spec={spec} theme={theme} fixed={fixed} fullScreen={fullScreen} />
   ) : (
-    <GraphDiagram spec={spec} theme={theme} fixed={fixed} onLink={onLink} />
+    <GraphDiagram spec={spec} theme={theme} fixed={fixed} fullScreen={fullScreen} onLink={onLink} />
   );
+  // PNG rendering stays exactly at the source dimensions, without reading controls.
+  return fixed ? draw(false) : <DiagramView title={spec.title} theme={theme} kind={spec.type === "sequence" ? "sequence" : "graph"}>{draw}</DiagramView>;
 }

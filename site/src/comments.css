@@ -22,10 +22,58 @@
 }
 
 .ic-box-button {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   font-size: 12px;
   line-height: 20px;
+}
+
+/* Slotted into the fullscreen dialog, so native modal inertness does not
+   disable them. The document retains ownership of styles and comment state. */
+.ic-diagram-comment-button,
+.ic-review-heading button {
+  padding: 8px 10px;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 6px;
+  background: var(--sl-color-bg);
+  color: var(--sl-color-white);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ic-diagram-review {
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  inset: 64px 12px 12px auto;
+  z-index: 30;
+  width: min(380px, calc(100dvw - 24px));
+  box-sizing: border-box;
+  padding: 12px;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 8px;
+  background: var(--sl-color-bg);
+  color: var(--sl-color-white);
+  font: 14px/1.5 var(--sl-font);
+  box-shadow: 0 4px 20px #0003;
+}
+
+.ic-diagram-review[hidden] { display: none; }
+.ic-review-heading { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 8px; }
+.ic-diagram-review > .ic-holder { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; margin-bottom: 0; }
+.ic-diagram-review :is(textarea, select) { box-sizing: border-box; max-width: 100%; }
+.ic-diagram-review .ic-about select { width: 100%; margin: 4px 0 0; }
+
+@media (pointer: coarse) {
+  .ic-box-button { width: 44px; height: 44px; }
+  .ic-diagram-comment-button, .ic-review-heading button { min-height: 44px; }
+}
+
+@media (max-width: 600px) {
+  .ic-diagram-review { top: auto; max-height: 60dvh; }
 }
 
 .ic-target {

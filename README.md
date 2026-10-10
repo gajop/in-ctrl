@@ -9,7 +9,7 @@ AI can write a lot of code quickly. Staying in control means knowing what the co
 - **Review:** a stack of branches, one page each: what the branch is for, its diff (split or unified, file by file or as a walkthrough), the docs and diagrams it changes before and after, comments on any line, files marked reviewed, and a verdict. Approving merges. An agent reads the review and answers from a shell.
 - **Diagrams from YAML:** architecture, deployment, flowcharts, lifecycles, tables (laid out by ELK, drawn with React Flow) and sequence diagrams, with real product icons (Google Cloud, Cloudflare, Docker, …), in light and dark.
 - **Readable everywhere:** each diagram is also rendered to a PNG next to its source, which the Markdown embeds, so the docs read on GitHub and in any editor.
-- **A docs site:** your `docs/` folder as a site with navigation, search and dark mode (Astro Starlight), where diagrams are live: zoom, pan, hover to follow a line, click a box to open its page.
+- **A docs site:** your `docs/` folder as a site with navigation, search and dark mode (Astro Starlight). Inline diagrams stay still while you scroll or swipe the page; hover follows a line and clicking a box opens its page. Press **Full screen** to pan/zoom a graph or scroll a large sequence; use **Exit full screen** or Escape to return to the same place in the page. Large graphs open at a readable scale; use **Fit view** for an overview. Each diagram has an accessible **Diagram help** info button with graph/sequence-specific controls, so pages do not need to repeat interaction instructions.
 - **Checks:** `in-ctrl check` fails when a PNG is older than its YAML, a diagram isn't shown anywhere, or an icon doesn't exist, without a browser, so it runs anywhere CI does.
 
 ## Use it
@@ -274,6 +274,8 @@ steps:
 - Keep a sequence to about 12 messages and one level of frames inside frames.
 
 ### Comments
+
+Fullscreen diagrams keep a **Comment** button inside the reading view. Pick an element in **About**, or hover/tap a diagram element and use its comment button. Threads and drafts move into the review panel and return to their original page position when it closes. Escape in the panel closes comments first and keeps the draft; a subsequent Escape exits fullscreen. The same comment anchors and API work in either view.
 
 Readers comment on any paragraph, list item, table row, heading or diagram box: point at it (or tap it on a phone) and press 💬. Threads show under their block, with reply, edit, resolve and delete, and a 💬 button lists every thread on the site.
 

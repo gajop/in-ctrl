@@ -49,7 +49,7 @@ export type Step =
 
 type Theme = "light" | "dark";
 
-export function SequenceDiagram({ spec, theme, fixed }: { spec: SequenceSpec; theme: Theme; fixed: boolean }) {
+export function SequenceDiagram({ spec, theme, fixed, fullScreen = false }: { spec: SequenceSpec; theme: Theme; fixed: boolean; fullScreen?: boolean }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   // Marker ids are per document, and each diagram's arrowheads take its own theme's colours.
@@ -62,11 +62,11 @@ export function SequenceDiagram({ spec, theme, fixed }: { spec: SequenceSpec; th
   }
   const { width, height, items } = drawing;
   return (
-    <div className={`cd cd-${theme} cd-seq${fixed ? " cd-fixed" : ""}`} style={fixed ? { width, height } : undefined}>
+    <div className={`cd cd-${theme} cd-seq${fixed ? " cd-fixed" : ""}${fullScreen ? " cd-seq-fullscreen" : ""}`} style={fixed ? { width, height } : undefined}>
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        width={fixed ? width : "100%"}
-        style={fixed ? undefined : { maxWidth: width, display: "block", margin: "0 auto" }}
+        width={fixed || fullScreen ? width : "100%"}
+        style={fixed ? undefined : fullScreen ? { minWidth: width, height, display: "block", margin: "0 auto" } : { maxWidth: width, display: "block", margin: "0 auto" }}
         role="img"
         aria-label={spec.title}
         onClick={(e) => {

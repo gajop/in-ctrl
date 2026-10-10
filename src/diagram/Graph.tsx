@@ -69,7 +69,7 @@ export interface EdgeSpec {
 
 type Theme = "light" | "dark";
 
-export function GraphDiagram({ spec, theme, fixed, onLink }: { spec: GraphSpec; theme: Theme; fixed: boolean; onLink?: (link: string) => void }) {
+export function GraphDiagram({ spec, theme, fixed, fullScreen = false, onLink }: { spec: GraphSpec; theme: Theme; fixed: boolean; fullScreen?: boolean; onLink?: (link: string) => void }) {
   const [layout, setLayout] = useState<Layout | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -85,7 +85,7 @@ export function GraphDiagram({ spec, theme, fixed, onLink }: { spec: GraphSpec; 
   if (!layout) return <div className={`cd cd-${theme} cd-loading`} style={{ height: 120 }} />;
   return (
     <ReactFlowProvider>
-      <Canvas layout={layout} theme={theme} fixed={fixed} onLink={onLink} />
+      <Canvas layout={layout} theme={theme} fixed={fixed} fullScreen={fullScreen} onLink={onLink} />
     </ReactFlowProvider>
   );
 }
@@ -359,7 +359,7 @@ function leafSize(n: NodeSpec & { label: string }): { width: number; height: num
 
 // Drawing
 
-function Canvas({ layout, theme, fixed, onLink }: { layout: Layout; theme: Theme; fixed: boolean; onLink?: (link: string) => void }) {
+function Canvas({ layout, theme, fixed, fullScreen, onLink }: { layout: Layout; theme: Theme; fixed: boolean; fullScreen: boolean; onLink?: (link: string) => void }) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const edgesOf = useMemo(() => {
@@ -372,7 +372,7 @@ function Canvas({ layout, theme, fixed, onLink }: { layout: Layout; theme: Theme
   // On a page: as wide as the page, and as tall as the diagram is at that width
   // (never larger than 100%), so the text stays readable and no space is wasted.
   const box = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
+  const [size, setSize] = useState({ width: 0, height: 0 });
   useLayoutEffect(() => {
     if (fixed || !box.current) return;
     let frame = 0;
@@ -380,8 +380,8 @@ function Canvas({ layout, theme, fixed, onLink }: { layout: Layout; theme: Theme
       // Changing the width state also changes this observed box's height.
       // Defer that render beyond ResizeObserver's current delivery cycle.
       cancelAnimationFrame(frame);
-      const nextWidth = entry.contentRect.width;
-      frame = requestAnimationFrame(() => setWidth(nextWidth));
+      const next = { width: entry.contentRect.width, height: entry.contentRect.height };
+      frame = requestAnimationFrame(() => setSize((old) => old.width === next.width && old.height === next.height ? old : next));
     });
     observer.observe(box.current);
     return () => {
@@ -389,31 +389,50 @@ function Canvas({ layout, theme, fixed, onLink }: { layout: Layout; theme: Theme
       cancelAnimationFrame(frame);
     };
   }, [fixed]);
-  const scale = width ? Math.min(1, width / layout.width) : 1;
-  const height = fixed ? layout.height : Math.ceil(layout.height * scale);
+  const { width } = size;
+  const fitScale = width ? Math.min(1, width / layout.width, fullScreen ? size.height / layout.height : 1) : 1;
+  // Fullscreen is a reading view. A large diagram must not shrink its labels
+  // into a thumbnail; pan to follow it, or use Fit for a whole-diagram overview.
+  const scale = fullScreen ? Math.max(0.9, fitScale) : fitScale;
+  const height = fullScreen ? "100%" : fixed ? layout.height : Math.ceil(layout.height * scale);
+  const viewport = fullScreen ? {
+    x: layout.width * scale > width ? MARGIN : (width - layout.width * scale) / 2,
+    y: layout.height * scale > size.height ? MARGIN : (size.height - layout.height * scale) / 2,
+    zoom: scale,
+  } : { x: 0, y: 0, zoom: fixed ? 1 : scale };
   const marker = `cd${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   return (
     <Hover.Provider value={{ hovered, selected, edgesOf, marker }}>
-      <div ref={box} className={`cd cd-${theme}${fixed ? " cd-fixed" : ""}`} style={fixed ? { width: layout.width, height } : { height }}>
+      <div ref={box} className={`cd cd-${theme}${fixed ? " cd-fixed" : ""}${!fixed && !fullScreen ? " cd-inline-graph" : ""}`} style={fixed ? { width: layout.width, height } : { height }}>
         <Markers id={marker} />
-        <ReactFlow
-          key={fixed ? "fixed" : `w${Math.round(width)}`}
+        {(fixed || (size.width > 0 && (!fullScreen || size.height > 0))) && <ReactFlow
+          key={fixed ? "fixed" : fullScreen ? `full${Math.round(width)}x${Math.round(size.height)}` : `w${Math.round(width)}`}
           nodes={layout.nodes}
           edges={layout.edges}
           nodeTypes={NODE_TYPES}
           edgeTypes={EDGE_TYPES}
           colorMode={theme}
           fitView={false}
-          defaultViewport={{ x: 0, y: 0, zoom: fixed ? 1 : scale }}
-          minZoom={0.2}
+          defaultViewport={viewport}
+          // Keep inline views fixed even when node focus or internal handlers
+          // request a viewport adjustment. Fullscreen remains interactive.
+          viewport={fullScreen ? undefined : viewport}
+          minZoom={Math.min(0.2, scale || 0.2)}
           maxZoom={2}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
-          zoomOnScroll={false}
-          preventScrolling={false}
-          panOnDrag={!fixed}
-          zoomOnPinch={!fixed}
+          autoPanOnNodeFocus={fullScreen}
+          autoPanOnSelection={fullScreen}
+          selectionKeyCode={null}
+          zoomOnScroll={fullScreen}
+          preventScrolling={fullScreen}
+          panOnDrag={fullScreen}
+          panOnScroll={false}
+          zoomOnPinch={fullScreen}
+          zoomOnDoubleClick={fullScreen}
+          panActivationKeyCode={fullScreen ? "Space" : null}
+          zoomActivationKeyCode={fullScreen ? undefined : null}
           proOptions={{ hideAttribution: true }}
           onNodeMouseEnter={(_, n) => setHovered(n.id)}
           onNodeMouseLeave={() => setHovered(null)}
@@ -424,8 +443,8 @@ function Canvas({ layout, theme, fixed, onLink }: { layout: Layout; theme: Theme
           }}
           onPaneClick={() => setSelected(null)}
         >
-          {!fixed && <Controls showInteractive={false} position="top-right" />}
-        </ReactFlow>
+          {fullScreen && <Controls showInteractive={false} position="top-right" />}
+        </ReactFlow>}
       </div>
     </Hover.Provider>
   );

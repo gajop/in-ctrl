@@ -47,6 +47,13 @@
   --xy-background-color: transparent;
 }
 
+/* React Flow's pane normally captures touch gestures, even when panning is
+   disabled. Inline diagrams belong to the page's scrolling surface. */
+.cd-inline-graph .react-flow__pane {
+  touch-action: pan-x pan-y pinch-zoom;
+  cursor: default;
+}
+
 .cd-markers {
   position: absolute;
   width: 0;
@@ -539,4 +546,143 @@
 .cd-note-label,
 .cd-entity-field {
   white-space: nowrap;
+}
+
+/* Reading controls are absent from fixed PNG renders. */
+.cd-view-tools {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-block: 4px;
+}
+
+.cd-view-actions {
+  position: relative;
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.cd-diagram-help {
+  display: flex;
+}
+
+.cd-view-button.cd-info-button {
+  justify-content: center;
+  width: 36px;
+  padding-inline: 0;
+}
+
+.cd-help-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: min(300px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 14px;
+  border: 1px solid var(--cd-node-border);
+  border-radius: 8px;
+  background: var(--cd-node-bg);
+  color: var(--cd-fg);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cd-help-panel p {
+  margin: 8px 0 0;
+}
+
+@media (max-width: 480px) {
+  .cd-view-button.cd-info-button {
+    width: 44px;
+    min-height: 44px;
+  }
+}
+
+.cd-view-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--cd-node-border);
+  border-radius: 6px;
+  background: var(--cd-node-bg);
+  color: var(--cd-fg);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cd-view-button:hover {
+  background: var(--cd-tag-bg);
+}
+
+.cd-view-button:focus-visible {
+  outline: 2px solid var(--cd-accent);
+  outline-offset: 2px;
+}
+
+.cd-fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  width: 100dvw;
+  height: 100vh;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 12px;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 0;
+}
+
+.cd-fullscreen[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cd-fullscreen::backdrop {
+  background: var(--cd-bg);
+}
+
+.cd-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+}
+
+.cd-view-header strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.cd-view-header button {
+  flex: none;
+}
+
+.cd-view-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cd-fullscreen .react-flow__controls {
+  opacity: 1;
+}
+
+.cd-seq-fullscreen {
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
 }

@@ -307,3 +307,143 @@ test("a line of code takes its own comment, quoted with its file and line", { ti
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("page metadata stays compact and retains legacy comment anchors", { timeout: 60000 }, async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "in-ctrl-metadata-"));
+  let served;
+  let browser;
+  try {
+    fs.cpSync(path.join(packageRoot, "test/fixture"), root, { recursive: true });
+    const provenance = "Updated at: 2026-10-03 · Runtime: frozen-sha + working changes";
+    fs.writeFileSync(path.join(root, "docs/provenance.md"), `# Provenance\n\n> ${provenance}\n\nBody.\n`);
+    fs.mkdirSync(path.join(root, ".in-ctrl"), { recursive: true });
+    const comment = { id: "old-provenance", page: "/provenance/", file: "docs/provenance.md", anchor: { section: "top", sectionTitle: "Provenance", block: "b0", quote: provenance }, text: "Existing metadata feedback", created: "2026-10-03T00:00:00Z", thread: "old-provenance" };
+    fs.writeFileSync(path.join(root, ".in-ctrl/comments.json"), JSON.stringify({ comments: { [comment.id]: comment }, resolved: {} }));
+    const out = path.join(root, "dist");
+    const build = cli(root, ["site", "build", out]);
+    const [code] = await once(build.child, "exit");
+    assert.equal(code, 0, build.output());
+    served = await serveBuilt(root, out);
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(new URL("provenance/", served.url).href);
+      const metadata = page.locator(".in-ctrl-page-metadata");
+      assert.equal(await metadata.textContent(), provenance);
+      const metrics = await metadata.evaluate((el) => ({ size: parseFloat(getComputedStyle(el).fontSize), rect: el.getBoundingClientRect().toJSON(), viewport: innerWidth }));
+      assert.ok(metrics.size <= 13, JSON.stringify(metrics));
+      assert.ok(metrics.rect.x >= 0 && metrics.rect.right <= width);
+      const thread = page.locator(".ic-thread");
+      await thread.waitFor({ state: "visible" });
+      assert.match(await thread.textContent(), /Existing metadata feedback/);
+      assert.equal(await thread.locator(".ic-outdated").count(), 0);
+      assert.equal(await metadata.evaluate((el) => el.nextElementSibling?.classList.contains("ic-holder")), true);
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.locator('starlight-theme-select select').first().selectOption("dark");
+    assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
+    assert.equal(await page.locator(".in-ctrl-page-metadata").isVisible(), true);
+    assert.deepEqual(readComments(path.join(root, ".in-ctrl/comments.json")).comments[comment.id], comment);
+  } finally {
+    if (browser) await browser.close();
+    await stop(served?.run);
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("fullscreen graph and sequence comments work with mouse, touch and preserved drafts", { timeout: 120000 }, async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "in-ctrl-fullscreen-comments-"));
+  let served;
+  let browser;
+  try {
+    fs.cpSync(path.join(packageRoot, "test/fixture"), root, { recursive: true });
+    const out = path.join(root, "dist");
+    const build = cli(root, ["site", "build", out]);
+    const [code] = await once(build.child, "exit");
+    assert.equal(code, 0, build.output());
+    served = await serveBuilt(root, out);
+    browser = await chromium.launch();
+    const errors = [];
+    for (const touch of [false, true]) {
+      const context = await browser.newContext({ viewport: { width: touch ? 390 : 1440, height: 900 }, isMobile: touch, hasTouch: touch });
+      const page = await context.newPage();
+      page.on("pageerror", (e) => errors.push(String(e)));
+      await page.goto(new URL("architecture/", served.url).href);
+      await page.locator("body.ic-comments-on").waitFor();
+      for (const [index, kind] of [[0, "graph"], [1, "sequence"]]) {
+        const graph = page.locator(".in-ctrl-diagram").nth(index);
+        await graph.getByRole("button", { name: "Full screen", exact: true }).click();
+        const modal = graph.getByRole("dialog");
+        const node = modal.locator(kind === "graph" ? '.react-flow__node[data-id="people"]' : ".cd-seq-card").first();
+        await node.waitFor();
+        // The native dialog must allow the slotted comment controls to receive
+        // real input, without leaving fullscreen or relying on forced clicks.
+        if (touch) await node.tap(); else await node.hover();
+        const bubble = graph.locator(".ic-box-button");
+        await bubble.waitFor({ state: "visible" });
+        if (touch) {
+          const bounds = await bubble.boundingBox();
+          assert.ok(bounds.width >= 44 && bounds.height >= 44);
+          await bubble.tap();
+        } else await bubble.click();
+        const panel = graph.getByRole("region", { name: "Diagram comments" });
+        await panel.waitFor();
+        const chosen = await panel.locator(".ic-about select").inputValue();
+        assert.ok(chosen, "node comment must retain its element label");
+        const area = panel.locator("textarea");
+        await area.fill(`Fullscreen ${kind} ${touch ? "touch" : "mouse"}`);
+        // Closing and reopening the panel preserves text and About selection.
+        await area.press("Escape");
+        await panel.waitFor({ state: "hidden" });
+        assert.equal(await modal.isVisible(), true);
+        await graph.getByRole("button", { name: "Comment", exact: true }).click();
+        assert.equal(await panel.locator(".ic-about select").inputValue(), chosen);
+        assert.match(await area.inputValue(), /Fullscreen/);
+        await panel.locator(".ic-save").click();
+        await panel.locator(".ic-thread").last().waitFor();
+        if (!touch && kind === "graph") {
+          const saved = Object.values(readComments(path.join(root, ".in-ctrl/comments.json")).comments).at(-1);
+          const replyText = "Reply while fullscreen " + "Long thread context. ".repeat(150);
+          const reply = cli(root, ["comments", "reply", saved.id, replyText, "--as", "agent"]);
+          const [replyCode] = await once(reply.child, "exit");
+          assert.equal(replyCode, 0, reply.output());
+          await panel.getByText(replyText, { exact: true }).waitFor();
+          // Exiting the diagram directly keeps an unsent draft at its source
+          // position; returning to fullscreen restores the same composer.
+          await panel.getByRole("button", { name: "Close diagram comments" }).click();
+          await graph.getByRole("button", { name: "Comment", exact: true }).click();
+          await panel.locator("textarea").fill("Unsent fullscreen draft");
+          const panelBounds = await panel.boundingBox();
+          const headerBounds = await panel.locator(".ic-review-heading").boundingBox();
+          assert.ok(headerBounds.y >= panelBounds.y && headerBounds.y + headerBounds.height <= panelBounds.y + panelBounds.height, "long threads must not scroll the close control away");
+          await modal.getByRole("button", { name: "Exit full screen" }).click();
+          assert.equal(await page.locator(".ic-holder textarea").inputValue(), "Unsent fullscreen draft");
+          await graph.getByRole("button", { name: "Full screen", exact: true }).click();
+          await graph.getByRole("button", { name: "Comment", exact: true }).click();
+          assert.equal(await panel.locator("textarea").inputValue(), "Unsent fullscreen draft");
+          await panel.locator(".ic-cancel").click();
+        }
+        await panel.getByRole("button", { name: "Close diagram comments" }).click();
+        await modal.getByRole("button", { name: "Exit full screen" }).click();
+        const thread = graph.locator("..").locator("+ .ic-holder .ic-thread").last();
+        await thread.waitFor();
+        assert.match(await thread.textContent(), new RegExp(`Fullscreen ${kind} ${touch ? "touch" : "mouse"}`));
+        assert.equal(await graph.locator(".ic-diagram-review").count(), 0);
+        assert.equal(await graph.locator(".ic-diagram-comment-button").count(), 0);
+      }
+      await context.close();
+    }
+    const state = readComments(path.join(root, ".in-ctrl/comments.json"));
+    assert.equal(Object.keys(state.comments).length, 5);
+    for (const c of Object.values(state.comments)) {
+      assert.equal(c.file, "docs/architecture.md");
+      assert.ok(c.anchor.about);
+    }
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser?.close();
+    await stop(served?.run);
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
