@@ -272,3 +272,38 @@ test("a built site served by site serve takes comments, on a phone too", { timeo
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("a line of code takes its own comment, quoted with its file and line", { timeout: 120000 }, async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "in-ctrl-e2e-code-"));
+  let served;
+  let browser;
+  try {
+    fs.cpSync(path.join(packageRoot, "test/fixture"), root, { recursive: true });
+    fs.writeFileSync(path.join(root, "docs/setup.md"), '# Setup\n\nThe server reads one file.\n\n```yaml title="app.yaml"\nname: shop\nport: 8080\n```\n');
+    const out = path.join(root, "dist");
+    const build = cli(root, ["site", "build", out]);
+    const [code] = await once(build.child, "exit");
+    assert.equal(code, 0, build.output());
+    served = await serveBuilt(root, out);
+
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(new URL("setup/", served.url).href);
+    await page.waitForSelector("body.ic-comments-on", { timeout: 10000 });
+    await page.locator(".ec-line").nth(1).hover();
+    await page.locator(".ic-block-button:not(.ic-box-button)").click();
+    await page.locator(".ic-composer textarea").fill("Why this port?");
+    await page.locator(".ic-composer .ic-save").click();
+    // The thread opens between the lines of code, under the line it is about.
+    const thread = page.locator(".expressive-code .ic-thread");
+    await thread.waitFor({ state: "visible", timeout: 5000 });
+
+    const file = path.join(root, ".in-ctrl/comments.json");
+    const [comment] = Object.values(readComments(file).comments);
+    assert.equal(comment.anchor.quote, "app.yaml:2: port: 8080");
+  } finally {
+    if (browser) await browser.close();
+    await stop(served?.run);
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

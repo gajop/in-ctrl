@@ -414,6 +414,12 @@ function collectBlocks(content: HTMLElement): Block[] {
       blocks.push({ el, section, sectionTitle, id: `b${index++}`, quote: quoteOf(el) });
       // A table is a block, and so is each of its rows (the row wins under the pointer).
       if (el.localName === "table") walk(el);
+      // Code blocks: each line is also a block (the line wins under the pointer).
+      if (el.matches(".expressive-code, figure.frame, pre") || el.querySelector(".ec-line")) {
+        for (const line of el.querySelectorAll<HTMLElement>(".ec-line")) {
+          blocks.push({ el: line, section, sectionTitle, id: `b${index++}`, quote: quoteOf(line) });
+        }
+      }
     }
   };
   walk(content);
@@ -432,7 +438,15 @@ function quoteOf(el: HTMLElement): string {
   }
   const copy = el.cloneNode(true) as HTMLElement;
   copy.querySelectorAll(".ic-holder, .sr-only").forEach((n) => n.remove());
-  return (copy.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 120);
+  const text = (copy.textContent ?? "").replace(/\s+/g, " ").trim();
+  // A line of code: its file (or line number) first, "app.yaml:3: port: 8080".
+  if (el.matches(".ec-line")) {
+    const code = el.closest("code");
+    const line = code ? [...code.querySelectorAll(".ec-line")].indexOf(el) + 1 : 0;
+    const file = el.closest(".expressive-code")?.querySelector(".header .title")?.textContent?.trim();
+    return `${file ? `${file}:${line}: ` : line ? `L${line}: ` : ""}${text}`.slice(0, 120);
+  }
+  return text.slice(0, 120);
 }
 
 function boxName(node: Element): string {

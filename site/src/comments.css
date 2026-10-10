@@ -44,6 +44,15 @@
   padding: 0.25rem 0.5rem;
 }
 
+/* Threads on a line of code sit between its lines, in the page's font. */
+pre .ic-holder,
+code .ic-holder {
+  white-space: normal;
+  font-family: var(--sl-font);
+  display: block;
+  margin: 0.5rem 0;
+}
+
 .ic-thread,
 .ic-holder > .ic-composer {
   border: 1px solid var(--sl-color-gray-5);
