@@ -44,7 +44,7 @@
   },
   "scripts": {
     "typecheck": "tsc -p .",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test --test-concurrency=1 test/*.test.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^7.0.0",
