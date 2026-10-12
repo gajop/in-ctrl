@@ -29,7 +29,7 @@ export async function render(config, { all = false } = {}) {
       const rel = path.relative(config.root, file);
       await page.goto(`${url}?file=${encodeURIComponent(rel)}&theme=light&fixed=1`, { waitUntil: "networkidle" });
       try {
-        await page.waitForSelector(".react-flow__node, .cd-seq svg", { timeout: 20000 });
+        await page.waitForSelector(".react-flow__node, .cd-seq svg, .cd-map svg", { timeout: 20000 });
       } catch {
         const error = await page.locator(".cd-error").textContent().catch(() => null);
         console.error(`${rel}: ${error ?? "nothing was drawn"}`);

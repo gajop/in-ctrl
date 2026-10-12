@@ -2,7 +2,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { Theme } from "./Diagram";
 
-export function DiagramView({ title, theme, kind, children }: { title?: string; theme: Theme; kind: "graph" | "sequence"; children: (fullScreen: boolean) => ReactNode }) {
+export function DiagramView({ title, theme, kind, children }: { title?: string; theme: Theme; kind: "graph" | "sequence" | "map"; children: (fullScreen: boolean) => ReactNode }) {
   const [expanded, setExpanded] = useState(false);
   const [inlineHeight, setInlineHeight] = useState<number>();
   const inline = useRef<HTMLDivElement>(null);
@@ -58,7 +58,7 @@ export function DiagramView({ title, theme, kind, children }: { title?: string; 
   );
 }
 
-function DiagramHelp({ kind, fullScreen }: { kind: "graph" | "sequence"; fullScreen: boolean }) {
+function DiagramHelp({ kind, fullScreen }: { kind: "graph" | "sequence" | "map"; fullScreen: boolean }) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
@@ -96,7 +96,10 @@ function DiagramHelp({ kind, fullScreen }: { kind: "graph" | "sequence"; fullScr
     {open && <div id={id} className="cd-help-panel" role="region" aria-label="Diagram controls">
       <strong>Diagram controls</strong>
       {!fullScreen && <p>Scroll or swipe the page normally. Open Full screen to explore the diagram.</p>}
-      {kind === "graph" ? <>
+      {kind === "map" ? <>
+        <p>Point at the map to read the values and names under the pointer. Steps, if any, have a slider; layers can be turned off.</p>
+        <p>In fullscreen, drag to pan and use the wheel to zoom.</p>
+      </> : kind === "graph" ? <>
         <p>In fullscreen, drag or swipe to pan. Use the wheel, pinch, or +/− controls to zoom.</p>
         <p>Fit view shows the whole graph.</p>
       </> : <p>In fullscreen, scroll or swipe across the full-size sequence.</p>}

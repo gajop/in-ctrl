@@ -686,3 +686,23 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
+
+/* Map diagrams (Map.tsx). */
+.cd-map { --cd-map-bg: #f6f8fa; padding: 12px 16px; box-sizing: border-box; }
+.cd-dark.cd-map, .cd-dark .cd-map { --cd-map-bg: #161b22; }
+.cd-map-title { font-weight: 600; font-size: 14px; margin: 0 0 8px; }
+.cd-map-panels { display: grid; gap: 16px 24px; }
+.cd-map-step { font-size: 12px; color: var(--cd-muted); margin: 0 0 4px; font-variant-numeric: tabular-nums; }
+.cd-map-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 8px; font-size: 12px; }
+.cd-map-tools input[type="range"] { width: min(260px, 40vw); }
+.cd-map-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cd-map-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--cd-node-border); border-radius: 999px; cursor: pointer; user-select: none; }
+.cd-map-svg { border-radius: 6px; max-width: 100%; height: auto; }
+.cd-map-full { height: calc(100% - 80px); }
+.cd-map-full .cd-map-canvas, .cd-map-full .cd-map-svg { width: 100%; height: 100%; }
+.cd-map-readout { position: absolute; pointer-events: none; background: var(--cd-node-bg); border: 1px solid var(--cd-node-border); box-shadow: var(--cd-node-shadow); border-radius: 6px; padding: 6px 8px; font-size: 12px; line-height: 1.5; white-space: nowrap; z-index: 2; font-variant-numeric: tabular-nums; }
+.cd-map-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 8px 0 0; font-size: 12px; color: var(--cd-fg); }
+.cd-map-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.cd-map-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--cd-node-border); }
+.cd-map-ramp { display: inline-block; width: 90px; height: 10px; border-radius: 3px; border: 1px solid var(--cd-node-border); }
+.cd-map-muted { color: var(--cd-muted); font-variant-numeric: tabular-nums; }
