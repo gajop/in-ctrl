@@ -85,7 +85,14 @@ export function stage(config, out, assets, { incremental = false } = {}) {
   // Images the pages show, next to them.
   for (const f of files.filter((f) => /\.(png|jpe?g|gif|svg|webp)$/i.test(f))) {
     const target = path.join(assets, path.relative(config.docs, f));
-    write(target, fs.readFileSync(f));
+    if (incremental) write(target, fs.readFileSync(f));
+    else {
+      // A fresh build needs no byte comparison. Copy in the filesystem instead
+      // of retaining two full image buffers across a large review gallery.
+      expected.add(target);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.copyFileSync(f, target);
+    }
   }
   if (incremental) {
     const prune = (dir) => {
