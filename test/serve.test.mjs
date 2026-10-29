@@ -18,6 +18,9 @@ function site() {
   put("guides/using/index.html", "<h1>using</h1>");
   put("guides/using/checkout/index.html", "<h1>checkout</h1>");
   put("style.css", "body{}");
+  put("clip.mp4", Buffer.from(Array.from({ length: 32 }, (_, i) => i)));
+  put("clip.webm", "webm bytes");
+  put("empty.mp4", "");
   fs.writeFileSync(path.join(os.tmpdir(), "in-ctrl-secret.txt"), "secret");
   return dir;
 }
@@ -26,14 +29,20 @@ async function serve(dir, options) {
   const server = http.createServer(siteHandler(dir, options));
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   const base = `http://127.0.0.1:${server.address().port}`;
-  const get = (p) =>
+  const get = (p, { method = "GET", headers = {} } = {}) =>
     new Promise((resolve, reject) => {
       // Raw paths, so "../" reaches the server as typed.
-      http.get({ host: "127.0.0.1", port: server.address().port, path: p }, (res) => {
-        let body = "";
-        res.on("data", (d) => (body += d));
-        res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body }));
-      }).on("error", reject);
+      const request = http.request({ host: "127.0.0.1", port: server.address().port, path: p, method, headers }, (res) => {
+        const chunks = [];
+        res.on("data", (d) => chunks.push(d));
+        res.on("end", () => {
+          const bytes = Buffer.concat(chunks);
+          resolve({ status: res.statusCode, headers: res.headers, body: bytes.toString("utf8"), bytes });
+        });
+        res.on("error", reject);
+      });
+      request.on("error", reject);
+      request.end();
     });
   return { server, base, get };
 }
@@ -48,6 +57,90 @@ test("redirect rules: exact and folder rules, exact wins, slashes optional", () 
   assert.deepEqual(parseRedirects(undefined), []);
   assert.throws(() => parseRedirects({ "/a/*": "/b/" }), /ends in \*/);
   assert.throws(() => parseRedirects(["/a/"]), /map/);
+});
+
+test("serve: video MIME and byte ranges return exactly the requested bytes", async () => {
+  const dir = site();
+  const bytes = fs.readFileSync(path.join(dir, "clip.mp4"));
+  const { server, get } = await serve(dir);
+  try {
+    const full = await get("/clip.mp4");
+    assert.equal(full.status, 200);
+    assert.equal(full.headers["content-type"], "video/mp4");
+    assert.equal(full.headers["accept-ranges"], "bytes");
+    assert.equal(full.headers["content-length"], "32");
+    assert.deepEqual(full.bytes, bytes);
+    assert.equal((await get("/clip.webm")).headers["content-type"], "video/webm");
+
+    for (const [range, start, end] of [
+      ["bytes=0-3", 0, 3], ["bytes=5-", 5, 31], ["bytes=-5", 27, 31],
+      ["bytes=20-99", 20, 31], ["bytes=-999", 0, 31], ["Bytes=1-1", 1, 1],
+      ["bytes=0001-0003", 1, 3], ["bytes=0-999999999999999999999999", 0, 31],
+    ]) {
+      const part = await get("/clip.mp4", { headers: { range } });
+      assert.equal(part.status, 206, range);
+      assert.equal(part.headers["content-type"], "video/mp4", range);
+      assert.equal(part.headers["accept-ranges"], "bytes", range);
+      assert.equal(part.headers["content-range"], `bytes ${start}-${end}/32`, range);
+      assert.equal(part.headers["content-length"], String(end - start + 1), range);
+      assert.deepEqual(part.bytes, bytes.subarray(start, end + 1), range);
+    }
+    const webm = await get("/clip.webm", { headers: { range: "bytes=1-4" } });
+    assert.equal(webm.status, 206);
+    assert.equal(webm.headers["content-type"], "video/webm");
+    assert.equal(webm.body, "ebm ");
+  } finally {
+    server.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("serve: HEAD, unsatisfiable ranges and unsupported forms keep HTTP semantics", async () => {
+  const dir = site();
+  const bytes = fs.readFileSync(path.join(dir, "clip.mp4"));
+  const { server, get } = await serve(dir, { base: "/shop/" });
+  try {
+    // Range is a GET modifier, not a HEAD modifier (RFC 9110 section 14.2).
+    for (const range of [undefined, "bytes=0-3", "bytes=99-"]) {
+      const head = await get("/shop/clip.mp4", { method: "HEAD", headers: range ? { range } : {} });
+      assert.equal(head.status, 200);
+      assert.equal(head.headers["content-type"], "video/mp4");
+      assert.equal(head.headers["content-length"], "32");
+      assert.equal(head.headers["accept-ranges"], "bytes");
+      assert.equal(head.headers["content-range"], undefined);
+      assert.equal(head.bytes.length, 0);
+    }
+    for (const range of ["bytes=32-", "bytes=33-99", "bytes=9-3", "bytes=-0", "bytes=999999999999999999999-"]) {
+      const response = await get("/shop/clip.mp4", { headers: { range } });
+      assert.equal(response.status, 416, range);
+      assert.equal(response.headers["content-range"], "bytes */32", range);
+      assert.equal(response.headers["content-length"], "0", range);
+      assert.equal(response.bytes.length, 0, range);
+    }
+    const empty = await get("/shop/empty.mp4", { headers: { range: "bytes=0-0" } });
+    assert.equal(empty.status, 416);
+    assert.equal(empty.headers["content-range"], "bytes */0");
+    for (const range of ["items=0-3", "bytes=bad", "bytes=-", "bytes=0-1,4-5"]) {
+      const response = await get("/shop/clip.mp4", { headers: { range } });
+      assert.equal(response.status, 200, range);
+      assert.equal(response.headers["content-range"], undefined, range);
+      assert.deepEqual(response.bytes, bytes, range);
+    }
+    for (const validator of ['"unverified"', "Wed, 21 Oct 2015 07:28:00 GMT", ""]) {
+      const unverified = await get("/shop/clip.mp4", { headers: { range: "bytes=0-3", "if-range": validator } });
+      assert.equal(unverified.status, 200);
+      assert.deepEqual(unverified.bytes, bytes);
+    }
+    const missing = await get("/shop/missing", { headers: { range: "bytes=0-3" } });
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body, "<h1>themed 404</h1>");
+    const post = await get("/shop/clip.mp4", { method: "POST", headers: { range: "bytes=0-3" } });
+    assert.equal(post.status, 405);
+    assert.equal(post.headers.allow, "GET, HEAD");
+  } finally {
+    server.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("serve: pages, folders, MIME types, themed 404, no way out of the folder, redirects", async () => {

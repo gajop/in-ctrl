@@ -26,6 +26,8 @@ const TYPES = {
   ".gif": "image/gif",
   ".webp": "image/webp",
   ".avif": "image/avif",
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
   ".ico": "image/x-icon",
   ".woff": "font/woff",
   ".woff2": "font/woff2",
@@ -43,11 +45,27 @@ export function siteHandler(dir, { base = "/", redirects = [] } = {}) {
   const prefix = base.replace(/\/+$/, "");
   const notFound = path.join(root, "404.html");
 
-  const send = (res, status, file, head = false) => {
+  const send = (res, status, file, head = false, range) => {
     const type = TYPES[path.extname(file).toLowerCase()] ?? "application/octet-stream";
-    res.writeHead(status, { "content-type": type, "content-length": fs.statSync(file).size });
+    const size = fs.statSync(file).size;
+    const headers = { "content-type": type, "content-length": size };
+    if (status === 200) headers["accept-ranges"] = "bytes";
+    const selected = status === 200 ? byteRange(range, size) : null;
+    if (selected === false) {
+      res.writeHead(416, { ...headers, "content-range": `bytes */${size}`, "content-length": 0 });
+      return res.end();
+    }
+    if (selected) {
+      status = 206;
+      headers["content-range"] = `bytes ${selected.start}-${selected.end}/${size}`;
+      headers["content-length"] = selected.end - selected.start + 1;
+    }
+    res.writeHead(status, headers);
     if (head) return res.end();
-    fs.createReadStream(file).pipe(res);
+    const stream = fs.createReadStream(file, selected || undefined);
+    res.once("close", () => stream.destroy());
+    stream.on("error", () => res.destroy());
+    stream.pipe(res);
   };
   const missing = (res, head) => {
     if (fs.existsSync(notFound)) return send(res, 404, notFound, head);
@@ -61,6 +79,9 @@ export function siteHandler(dir, { base = "/", redirects = [] } = {}) {
       res.writeHead(405, { allow: "GET, HEAD" });
       return res.end();
     }
+    // Range is defined for GET only. Without validators, If-Range cannot be
+    // verified, so return the complete representation rather than a stale slice.
+    const range = !head && req.headers["if-range"] === undefined ? req.headers.range : null;
     let url;
     try {
       url = new URL(req.url, "http://site");
@@ -95,12 +116,35 @@ export function siteHandler(dir, { base = "/", redirects = [] } = {}) {
         return res.end();
       }
       const index = path.join(file, "index.html");
-      if (fs.existsSync(index)) return send(res, 200, index, head);
+      if (fs.existsSync(index)) return send(res, 200, index, head, range);
       stat = null;
     }
-    if (stat?.isFile()) return send(res, 200, file, head);
+    if (stat?.isFile()) return send(res, 200, file, head, range);
     return missing(res, head);
   };
+}
+
+/** One bounded byte slice, false for unsatisfiable, null to ignore unsupported syntax. */
+function byteRange(value, size) {
+  if (typeof value !== "string") return null;
+  // Ignore multipart/unknown units instead of allocating or streaming many parts.
+  const match = /^bytes=(\d*)-(\d*)$/i.exec(value.trim());
+  if (!match || (!match[1] && !match[2])) return null;
+  const length = BigInt(size);
+  if (length === 0n) return false;
+  let start, end;
+  if (!match[1]) {
+    const suffix = BigInt(match[2]);
+    if (suffix === 0n) return false;
+    start = suffix < length ? length - suffix : 0n;
+    end = length - 1n;
+  } else {
+    start = BigInt(match[1]);
+    end = match[2] ? BigInt(match[2]) : length - 1n;
+    if (start >= length || end < start) return false;
+    if (end >= length) end = length - 1n;
+  }
+  return { start: Number(start), end: Number(end) };
 }
 
 /** True if nothing is at `file`, or only a redirect page `site build` wrote. */
