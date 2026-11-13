@@ -128,14 +128,47 @@ function diagramsScript(config, has404) {
   };
 }
 
+/** Move `src` to `dst`, falling back to copy + remove across filesystems (EXDEV). */
+function movePath(src, dst) {
+  fs.mkdirSync(path.dirname(dst), { recursive: true });
+  try {
+    fs.renameSync(src, dst);
+  } catch (err) {
+    if (err.code !== "EXDEV") throw err;
+    fs.cpSync(src, dst, { recursive: true });
+    fs.rmSync(src, { recursive: true, force: true });
+  }
+}
+
+/** Replace `dst` with the contents of `src`, keeping `.git` if `dst` already exists. */
+function replaceDir(src, dst) {
+  if (!fs.existsSync(dst)) {
+    movePath(src, dst);
+    return;
+  }
+  for (const entry of fs.readdirSync(dst)) {
+    if (entry === ".git") continue;
+    fs.rmSync(path.join(dst, entry), { recursive: true, force: true });
+  }
+  for (const entry of fs.readdirSync(src)) {
+    movePath(path.join(src, entry), path.join(dst, entry));
+  }
+}
+
 export async function buildSite(config, outDir) {
   const { build } = await import("astro");
   const out = path.resolve(outDir);
   const work = workFolder();
+  const prevCwd = process.cwd();
   process.chdir(work);
   try {
-    await build(astroConfig(config, out, work));
+    // Build inside `work` so Astro's internal asset moves stay on one filesystem;
+    // `out` may live on another device (e.g. /tmp vs ~/.cache), which would fail with EXDEV.
+    const built = path.join(work, "dist");
+    await build(astroConfig(config, built, work));
+    replaceDir(built, out);
   } finally {
+    process.chdir(prevCwd);
     fs.rmSync(work, { recursive: true, force: true });
   }
   const moved = writeRedirectPages(config.redirects ?? [], out, config.base);
