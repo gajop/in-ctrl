@@ -18,7 +18,7 @@
 // `\n` in a label breaks the line.
 
 import { Controls, type Edge, type Node, ReactFlow, ReactFlowProvider } from "@xyflow/react";
-import ELK, { type ElkExtendedEdge, type ElkNode } from "elkjs/lib/elk.bundled.js";
+import type { ElkExtendedEdge, ElkNode } from "elkjs/lib/elk.bundled.js";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { EDGE_TYPES, Hover, Markers, NODE_TYPES } from "./GraphNodes";
 import { MONO, lines, textWidth } from "./text";
@@ -102,7 +102,8 @@ interface Layout {
 const MARGIN = 24;
 const ICON = 36; // the box icon size, as drawn in GraphNodes
 const GROUP_HEADER = 40;
-const elk = new ELK();
+let elkPromise: Promise<InstanceType<typeof import("elkjs/lib/elk.bundled.js").default>> | null = null;
+const getElk = () => (elkPromise ??= import("elkjs/lib/elk.bundled.js").then(({ default: ELK }) => new ELK()));
 
 /** The node with its vocabulary defaults filled in. */
 function resolved(n: NodeSpec): NodeSpec & { label: string } {
@@ -187,7 +188,7 @@ async function layoutGraph(spec: GraphSpec): Promise<Layout> {
       }),
     ),
   };
-  const done = await elk.layout(graph);
+  const done = await (await getElk()).layout(graph);
 
   const nodes: Node[] = [];
   const walk = (n: ElkNode, depth: number) => {

@@ -40,6 +40,7 @@ test("built and live sites populate nested sidebars and initialize React before 
     const build = cli(root, ["site", "build", out]);
     const [code] = await once(build.child, "exit");
     assert.equal(code, 0, build.output());
+    assert.doesNotMatch(build.output(), /\[WARN\]|\(!\)/, build.output());
     const html = fs.readFileSync(path.join(out, "architecture/index.html"), "utf8");
     for (const route of ["guides/", "guides/setup/install/"]) {
       assert.ok(html.includes(`href="/shop/${route}"`), `Missing built sidebar link: ${route}`);
@@ -109,6 +110,7 @@ test("built and live sites populate nested sidebars and initialize React before 
     const flatBuild = cli(flat, ["site", "build", flatOut]);
     const [flatCode] = await once(flatBuild.child, "exit");
     assert.equal(flatCode, 0, flatBuild.output());
+    assert.doesNotMatch(flatBuild.output(), /\[WARN\]|\(!\)/, flatBuild.output());
     assert.ok(fs.readFileSync(path.join(flatOut, "start/index.html"), "utf8").includes('href="/start/" aria-current="page"'),
       "Root-only docs are missing their current-page sidebar link");
   } finally {

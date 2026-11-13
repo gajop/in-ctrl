@@ -30,8 +30,9 @@ function workFolder() {
   const parent = top(os.tmpdir()) === top(PACKAGE) ? os.tmpdir() : path.join(os.homedir(), ".cache");
   fs.mkdirSync(parent, { recursive: true });
   const work = fs.mkdtempSync(path.join(parent, "in-ctrl-site-"));
-  fs.mkdirSync(path.join(work, "src"));
+  fs.mkdirSync(path.join(work, "src/content/i18n"), { recursive: true });
   fs.copyFileSync(path.join(SITE, "src/content.config.ts"), path.join(work, "src/content.config.ts"));
+  fs.writeFileSync(path.join(work, "src/content/i18n/en.json"), "{}\n");
   // Starlight derives sidebar folders from src/content/docs, independently
   // of the glob loader's base. Keep staging and navigation on the same path.
   process.env.IN_CTRL_CONTENT = path.join(work, "src/content");
@@ -53,6 +54,7 @@ function dependencies() {
 function astroConfig(config, outDir, work) {
   const docsOut = path.join(work, "src/content/docs");
   const groups = stage(config, docsOut, path.join(work, "public/_docs-assets"));
+  const has404 = fs.existsSync(path.join(docsOut, "404.md"));
   // The folders the config lists come first, in its order; the rest follow A to Z.
   const sidebar = groups.length ? sidebarFor(config, docsOut, groups) : undefined;
   return {
@@ -66,19 +68,23 @@ function astroConfig(config, outDir, work) {
     site: config.siteUrl || undefined,
     logLevel: "warn",
     integrations: [
+      // Skip @astrojs/sitemap when disabled or when no site URL is configured, avoiding its warning.
+      ...(!config.sitemap || !config.siteUrl ? [{ name: "@astrojs/sitemap", hooks: {} }] : []),
       starlight({
         title: config.title,
         description: config.description || undefined,
         social: config.repo ? [{ icon: "github", label: "GitHub", href: config.repo }] : [],
         customCss: [path.join(SITE, "src/styles.css"), ...(config.comments ? [path.join(SITE, "src/comments.css")] : [])],
         sidebar,
+        disable404Route: !has404,
         // Before the page paints: hide the sidebar or the table of contents if the reader did.
         head: [{ tag: "script", content: LAYOUT_STATE }],
       }),
       react(),
-      diagramsScript(config),
+      diagramsScript(config, has404),
     ],
     vite: {
+      build: { chunkSizeWarningLimit: config.chunkSizeWarningLimit },
       plugins: [
         projectPlugin(config),
         docsWatchPlugin(config, path.join(work, "src/content/docs"), path.join(work, "public/_docs-assets")),
@@ -105,11 +111,13 @@ const LAYOUT_STATE = `for (const part of ["sidebar", "toc"]) { try { if (localSt
  * (`site dev` and `site serve` answer it) and shows nothing where there is none, so a built
  * site keeps working on any static host.
  */
-function diagramsScript(config) {
+function diagramsScript(config, has404) {
   return {
     name: "in-ctrl-diagrams",
     hooks: {
-      "astro:config:setup": ({ injectScript }) => {
+      "astro:config:setup": ({ injectRoute, injectScript }) => {
+        // Use StarlightPage directly when no user 404.md exists so Starlight does not call getEntry("docs", "404") and warn.
+        if (!has404) injectRoute({ pattern: "404", entrypoint: path.join(SITE, "src/404.astro"), prerender: true });
         // These React roots are not Astro islands. Run the renderer's
         // preamble before importing modules transformed for Fast Refresh.
         injectScript("page", `import "astro:scripts/before-hydration.js";\nimport(${JSON.stringify(path.join(SITE, "src/diagrams.tsx"))});`);

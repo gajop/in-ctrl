@@ -47,6 +47,8 @@ export function loadConfig(root = process.cwd()) {
     branch: raw.branch ?? "main",
     base: raw.site?.base ?? "/",
     siteUrl: raw.site?.url ?? "",
+    sitemap: raw.site?.sitemap ?? Boolean(raw.site?.url),
+    chunkSizeWarningLimit: raw.site?.chunkSizeWarningLimit ?? 2000,
     sidebar: (raw.site?.sidebar ?? []).map((e) => (typeof e === "string" ? { dir: e } : e)),
     redirects: parseRedirects(raw.site?.redirects),
     vocabulary: raw.vocabulary ?? {},
